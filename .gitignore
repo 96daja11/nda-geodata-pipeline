@@ -15,6 +15,9 @@ ENV/
 # Data outputs - gitignored
 data/outputs/
 
+# Dataset files (large, downloaded separately)
+data/datasets/
+
 # Model weights (large files)
 models/crack_detection/*.pt
 models/crack_detection/*.onnx
