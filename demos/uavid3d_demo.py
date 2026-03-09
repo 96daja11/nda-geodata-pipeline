@@ -1,15 +1,21 @@
 """
-UAVID3D dataset demo.
+UAVID3D dataset demo – UAV thermal building inspection.
 
 Dataset: UAVID3D – UAV-based thermal building inspection
 Location: data/datasets/uavid3d/
 
-Extracted datasets:
+Extracted datasets used:
   Blume_drone_data_capture_may2021/thermal/1_initial/project_data/normalised/
       DJI_0001.jpg – DJI_0131.jpg  (129 normalised thermal JPEGs)
 
-Also checks for Olympic_004 if extracted:
-  Olympic_004/... (if present)
+  Olympic_club_drone_data_capture_may2021/thermal_images/
+      Project 00016_inputs/  – 90 DJI thermal JPEGs
+      Project 00017_inputs/  – 90 DJI thermal JPEGs
+      Project 00018_inputs/  – 30 DJI thermal JPEGs
+      Project 00019_inputs/  – 35 DJI thermal JPEGs
+
+Images from both building sites are combined for the demo run.
+The final selection of MAX_IMAGES images is drawn evenly from both sources.
 
 Usage:
     python3 demos/uavid3d_demo.py
@@ -35,7 +41,7 @@ DATASET_ROOT = PROJECT_ROOT / "data" / "datasets" / "uavid3d"
 OUTPUT_DIR   = PROJECT_ROOT / "data" / "outputs" / "uavid3d"
 MAX_IMAGES   = 15
 
-# Blume commercial building survey location (Bochum/NRW area, Germany)
+# Blume commercial building survey location (Bochum / NRW area, Germany)
 CENTER_LAT = 51.4818
 CENTER_LON = 7.2162
 
@@ -49,42 +55,56 @@ BLUME_THERMAL_DIR = (
     / "normalised"
 )
 
+# Olympic club thermal images (4 projects extracted from ZIP)
+OLYMPIC_THERMAL_DIR = (
+    DATASET_ROOT
+    / "Olympic_club_drone_data_capture_may2021"
+    / "thermal_images"
+)
 
-def _find_images(root: Path, exts=(".jpg", ".jpeg", ".png", ".tif", ".tiff")) -> list[Path]:
-    imgs = []
-    for ext in exts:
-        imgs.extend(root.rglob(f"*{ext}"))
-        imgs.extend(root.rglob(f"*{ext.upper()}"))
-    return sorted(set(imgs))
+
+def _collect_olympic_images() -> list[Path]:
+    """
+    Collect DJI thermal JPEGs from extracted Olympic project folders.
+
+    Each project zip extracted to a subfolder like:
+        thermal_images/Project 00016_inputs/Project 00016_inputs/DJI_*.jpg
+    """
+    images: list[Path] = []
+    if not OLYMPIC_THERMAL_DIR.exists():
+        return images
+
+    for project_dir in sorted(OLYMPIC_THERMAL_DIR.iterdir()):
+        if not project_dir.is_dir():
+            continue
+        # Images may be directly inside or one level deeper (same name subdir)
+        found = sorted(project_dir.rglob("DJI_*.jpg"))
+        if found:
+            logger.info(
+                f"  Olympic {project_dir.name}: {len(found)} thermal images"
+            )
+            images.extend(found)
+
+    return images
 
 
 def _collect_thermal_images() -> list[Path]:
     """
     Collect thermal images from all available extracted UAVID3D datasets.
-    Prioritises the known normalised directory; also discovers any other
-    extracted sub-datasets.
+    Returns images from Blume (primary) and Olympic (if extracted).
     """
     images: list[Path] = []
 
-    # 1. Blume normalised thermal images (primary)
+    # 1. Blume normalised thermal images
     if BLUME_THERMAL_DIR.exists():
         blume_imgs = sorted(BLUME_THERMAL_DIR.glob("DJI_*.jpg"))
         if blume_imgs:
             logger.info(f"  Blume dataset: {len(blume_imgs)} thermal images")
             images.extend(blume_imgs)
 
-    # 2. Look for any other extracted datasets (Olympic_004, etc.)
-    for child in sorted(DATASET_ROOT.iterdir()):
-        if child.is_dir() and child != BLUME_THERMAL_DIR.parents[4]:
-            # Skip the Blume top-level dir (already covered above)
-            if "blume" in child.name.lower():
-                continue
-            extra_imgs = _find_images(child)
-            extra_imgs = [p for p in extra_imgs
-                          if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}]
-            if extra_imgs:
-                logger.info(f"  Additional dataset '{child.name}': {len(extra_imgs)} images")
-                images.extend(extra_imgs)
+    # 2. Olympic club thermal images
+    olympic_imgs = _collect_olympic_images()
+    images.extend(olympic_imgs)
 
     return images
 
@@ -102,24 +122,14 @@ def _check_dataset() -> list[Path]:
     if images:
         return images
 
-    # No images found – check for ZIPs
-    zips = list(DATASET_ROOT.glob("*.zip"))
-    if zips:
-        cmds = "\n".join(f"    unzip {z.name}" for z in sorted(zips))
-        print(
-            "\n[UAVID3D demo] Dataset ZIPs found but not extracted.\n"
-            "Run:\n\n"
-            f"    cd {DATASET_ROOT}\n"
-            f"{cmds}\n\n"
-            "Then re-run this demo."
-        )
-    else:
-        print(
-            "\n[UAVID3D demo] No images or ZIPs found.\n"
-            "Place Blume_004.zip (and/or Olympic_004.zip) at:\n"
-            f"    {DATASET_ROOT}/\n"
-            "Then extract and re-run."
-        )
+    # No images found
+    print(
+        "\n[UAVID3D demo] No images found.\n"
+        "Expected Blume thermal images at:\n"
+        f"    {BLUME_THERMAL_DIR}\n"
+        "or Olympic images at:\n"
+        f"    {OLYMPIC_THERMAL_DIR}\n"
+    )
     sys.exit(0)
 
 
@@ -128,7 +138,7 @@ def main() -> str:
 
     logger.info(f"UAVID3D: {len(all_thermal)} thermal images found in total")
 
-    # Select 15 evenly-spaced images
+    # Select MAX_IMAGES evenly-spaced images across all sources
     step = max(1, len(all_thermal) // MAX_IMAGES)
     selected = all_thermal[::step][:MAX_IMAGES]
     logger.info(f"  Selected {len(selected)} images (every {step}th)")
