@@ -1,0 +1,38 @@
+# WebODM labb-setup – all-in-one container
+#
+# Kör med:
+#   docker compose -f docker-compose.webodm.yml up -d
+#
+# WebODM UI:  http://localhost:8010
+#   Första login: skapa admin-konto via UI
+#
+# Stoppa:
+#   docker compose -f docker-compose.webodm.yml down
+#
+# Rensa all data (börja om från scratch):
+#   docker compose -f docker-compose.webodm.yml down -v
+#
+# Kräver minst 4 GB RAM för demo-dataset, 8+ GB för verkliga flyguppdrag.
+#
+# AGPL-3 licens – se kommentar i README för kommersiell användning.
+
+services:
+
+  webodm:
+    image: opendronemap/webodm:latest
+    ports:
+      - "8010:8000"
+    volumes:
+      - webodm_media:/webodm/app/media
+    environment:
+      - WO_HOST=0.0.0.0
+      - WO_PORT=8000
+      - WO_DEBUG=NO
+      - WO_DEFAULT_NODES=1
+    restart: unless-stopped
+    # NodeODM (processnod) körs inbakat i denna container.
+    # För att lägga till fler parallella noder, lägg till en separat
+    # node-odm-tjänst och registrera den via WebODM-UI:t.
+
+volumes:
+  webodm_media:
