@@ -10,7 +10,7 @@ statistics and a PDF report — all from a single command.
 # Run the full pipeline on a dataset directory
 ./run_pipeline.sh /path/to/dataset
 
-# Examples
+# Examples — North Drone Analytics datasets
 ./run_pipeline.sh /mnt/storage4tb/smarttek-demo/webodm_sampledata
 ./run_pipeline.sh /mnt/storage4tb/smarttek-demo/webodm_sampledata_wietrznia
 ```

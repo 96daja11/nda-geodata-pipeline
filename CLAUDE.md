@@ -2,7 +2,7 @@
 
 ## Vad det här repot är
 
-En end-to-end demonstrationspipeline för SmartTek AB:s drönbaserade fastighetsinspektion.
+En end-to-end demonstrationspipeline för North Drone Analytics:s drönbaserade fastighetsinspektion.
 Pipelinens ingång är råbilder (RGB + termisk) från en DJI Mavic 3 Thermal.
 Pipelinens utdata är en strukturerad inspektionsrapport i PDF-format med georefererade fynd,
 temperatursignaturer och prioriterade åtgärdsrekommendationer.
@@ -79,7 +79,7 @@ smarttek-demo/
 ├── frontend/
 │   ├── index.html              # Demo-UI: filuppladdning, pipeline-status, länk till rapport
 │   └── assets/
-│       └── logo.png            # SmartTek-logotyp (används i rapport)
+│       └── logo.png            # North Drone Analytics-logotyp (används i rapport)
 │
 └── tests/
     ├── conftest.py
@@ -136,8 +136,8 @@ IngestResult → PhotogrammetryResult → ThermalResult → DetectionResult → 
 Rapporten är det enda kunden faktiskt ser. Den ska kännas som ett professionellt dokument
 från ett seriöst techbolag – inte ett automatgenererat skript-output. Följ dessa principer:
 
-- **Visuell design:** Skandinavisk, avskalad precision. Mörkt omslag med SmartTek-identitet,
-  tydlig typografi (DM Serif Display för rubriker, monospace för tekniska värden).
+- **Visuell design:** Skandinavisk, avskalad precision. Mörkt omslag med North Drone Analytics-identitet,
+  tydlig typografi (DM Sans för rubriker, monospace för tekniska värden).
 - **Framsida:** Uppdragsreferens, datum, fastighetsadress, beställare och en
   sammanfattning av fynd-statistik (antal per allvarlighetsgrad).
 - **Karta:** Leaflet-baserad interaktiv karta (i HTML-versionen) eller statisk karta
@@ -150,7 +150,7 @@ från ett seriöst techbolag – inte ett automatgenererat skript-output. Följ 
   och estimerad kostnad per åtgärd.
 - **Metodiksektion:** Enkel pipeline-visualisering som visar de 6 stegen och vilka
   verktyg som användes – ger kunden förtroende för analysens grund.
-- **Sidfot:** SmartTek AB, tagline "De flesta levererar bilder. Vi levererar svar.",
+- **Sidfot:** North Drone Analytics, tagline "Data från luften. Insikt på marken.",
   rapport-ID, genereringsdatum, bekräftelse att all data behandlats inom Sverige.
 
 Färgkodning av allvarlighetsgrad ska vara konsekvent genom hela rapporten:
@@ -162,16 +162,16 @@ Färgkodning av allvarlighetsgrad ska vara konsekvent genom hela rapporten:
 ## Demo-UI (`frontend/index.html`)
 
 Demo-UI:t är det första en kund ser när de kör demon lokalt. Det ska vara visuellt
-imponerande och kommunicera vad SmartTek gör på under 5 sekunder.
+imponerande och kommunicera vad North Drone Analytics gör på under 5 sekunder.
 
 Sidan är en enkel single-page HTML-fil (ingen build-process, ingen React) som:
-1. Visar SmartTek-identitet och tagline tydligt
+1. Visar North Drone Analytics-identitet och tagline tydligt
 2. Har ett enkelt formulär för att starta en pipeline-körning (välj exempeldata eller ladda upp egna bilder)
 3. Visar pipeline-progress i realtid via polling mot API:et (steg 1–6 med status)
 4. Presenterar en länk till den färdiga rapporten när pipeline:n är klar
 
 Design: samma estetik som rapporten – mörkt tema, skandinavisk precision, tydlig typografi.
-Använd Google Fonts (DM Serif Display + DM Mono + Instrument Sans).
+Använd Google Fonts (DM Sans + DM Mono).
 Leaflet för kartvisningar.
 Ingen extern CSS-framework – ren CSS med custom properties.
 
@@ -219,7 +219,7 @@ DETECTION_MODEL_PATH=models/crack_detection/best.pt
 DETECTION_CONFIDENCE=0.4
 
 # Rapport
-REPORT_COMPANY_NAME=SmartTek AB
+REPORT_COMPANY_NAME=North Drone Analytics
 REPORT_LOGO_PATH=frontend/assets/logo.png
 ```
 

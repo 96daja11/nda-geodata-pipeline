@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SmartTek — Wietrznia · 3D Inspektion</title>
+  <title>North Drone Analytics — Wietrznia · 3D Inspektion</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="Potree_1.8.2/build/potree/potree.css" />
   <link rel="stylesheet" href="Potree_1.8.2/libs/jquery-ui/jquery-ui.min.css" />
@@ -13,18 +14,20 @@
 
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; background: #0d1117; font-family: "DM Mono", "Courier New", monospace; overflow: hidden; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #08152A; font-family: "DM Sans", "DM Mono", "Courier New", monospace; overflow: hidden; }
 
     #topbar {
       position: fixed; top: 0; left: 0; right: 0; height: 48px; z-index: 1000;
-      background: #161b22; border-bottom: 1px solid #30363d;
+      background: #08152A; border-bottom: 2px solid #1D55D4;
       display: flex; align-items: center; padding: 0 1rem; gap: 1rem;
     }
-    #topbar .logo { color: #3fb950; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.08em; white-space: nowrap; }
-    #topbar .dataset { color: #8b949e; font-size: 0.75rem; }
+    #topbar .logo { font-family: "DM Sans", sans-serif; font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
+    #topbar .logo .north { color: #FFFFFF; }
+    #topbar .logo .analytics { color: #4B8AF4; }
+    #topbar .dataset { color: #8FA8CC; font-family: "DM Mono", monospace; font-size: 0.75rem; }
     #topbar .spacer { flex: 1; }
-    #topbar a.back { color: #3fb950; font-size: 0.75rem; text-decoration: none; border: 1px solid #30363d; border-radius: 4px; padding: 0.25rem 0.75rem; }
-    #topbar a.back:hover { background: #21262d; }
+    #topbar a.back { color: #4B8AF4; font-family: "DM Mono", monospace; font-size: 0.75rem; text-decoration: none; border: 1px solid #1D55D4; border-radius: 4px; padding: 0.25rem 0.75rem; }
+    #topbar a.back:hover { background: #0F2240; }
 
     #potree_render_area { position: fixed; top: 48px; left: 0; right: 380px; bottom: 0; }
     #potree_sidebar_container { display: none; }
@@ -32,57 +35,57 @@
 
     #custom_sidebar {
       position: fixed; top: 48px; right: 0; width: 380px; bottom: 0;
-      background: #161b22; border-left: 1px solid #30363d;
+      background: #0F2240; border-left: 1px solid #1D55D4;
       overflow-y: auto; display: flex; flex-direction: column;
     }
 
     /* Tabs */
-    .tab-header { display: flex; background: #0d1117; border-bottom: 1px solid #21262d; }
-    .tab-btn { flex: 1; padding: 0.6rem; font-family: inherit; font-size: 0.7rem; font-weight: 600; color: #8b949e; background: none; border: none; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid transparent; transition: all 0.15s; }
-    .tab-btn.active { color: #3fb950; border-bottom-color: #3fb950; }
-    .tab-btn:hover:not(.active) { color: #e6edf3; }
+    .tab-header { display: flex; background: #08152A; border-bottom: 1px solid #1D55D4; }
+    .tab-btn { flex: 1; padding: 0.6rem; font-family: "DM Sans", inherit; font-size: 0.7rem; font-weight: 600; color: #8FA8CC; background: none; border: none; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab-btn.active { color: #4B8AF4; border-bottom-color: #4B8AF4; }
+    .tab-btn:hover:not(.active) { color: #F7F9FC; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    .sb-section { padding: 1rem; border-bottom: 1px solid #21262d; }
-    .sb-title { font-size: 0.65rem; color: #3fb950; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.75rem; }
+    .sb-section { padding: 1rem; border-bottom: 1px solid #1D55D4; }
+    .sb-title { font-size: 0.65rem; color: #4B8AF4; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.75rem; font-family: "DM Mono", monospace; }
     .sb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
-    .sb-label { font-size: 0.72rem; color: #8b949e; flex: 0 0 145px; }
-    .sb-val { font-size: 0.72rem; color: #e6edf3; min-width: 2.5rem; text-align: right; }
-    input[type=range] { flex: 1; accent-color: #3fb950; cursor: pointer; }
-    input[type=number] { width: 60px; background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; font-family: inherit; }
-    select { background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; flex: 1; cursor: pointer; }
+    .sb-label { font-size: 0.72rem; color: #8FA8CC; flex: 0 0 145px; }
+    .sb-val { font-size: 0.72rem; color: #F7F9FC; min-width: 2.5rem; text-align: right; }
+    input[type=range] { flex: 1; accent-color: #4B8AF4; cursor: pointer; }
+    input[type=number] { width: 60px; background: #08152A; color: #F7F9FC; border: 1px solid #1D55D4; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; font-family: inherit; }
+    select { background: #08152A; color: #F7F9FC; border: 1px solid #1D55D4; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; flex: 1; cursor: pointer; }
     .btn { display: block; width: 100%; padding: 0.5rem; border: none; border-radius: 5px; font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-bottom: 0.4rem; letter-spacing: 0.04em; transition: opacity 0.15s; }
     .btn:hover { opacity: 0.85; }
-    .btn-primary   { background: #1f6feb; color: #fff; }
-    .btn-success   { background: #238636; color: #fff; }
+    .btn-primary   { background: #1D55D4; color: #fff; }
+    .btn-success   { background: #1D55D4; color: #fff; }
     .btn-warn      { background: #9e6a03; color: #fff; }
     .btn-danger    { background: #b91c1c; color: #fff; }
-    .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+    .btn-secondary { background: #08152A; color: #F7F9FC; border: 1px solid #1D55D4; }
 
     .cls-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
     .cls-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
-    .cls-label { font-size: 0.72rem; color: #e6edf3; flex: 1; }
-    .cls-toggle { font-size: 0.65rem; color: #3fb950; cursor: pointer; }
+    .cls-label { font-size: 0.72rem; color: #F7F9FC; flex: 1; }
+    .cls-toggle { font-size: 0.65rem; color: #4B8AF4; cursor: pointer; }
 
     .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-    .stat-box { background: #0d1117; border-radius: 6px; padding: 0.6rem 0.8rem; }
-    .stat-num { font-size: 1.05rem; font-weight: 700; color: #3fb950; }
-    .stat-lbl { font-size: 0.65rem; color: #8b949e; margin-top: 0.1rem; }
+    .stat-box { background: #08152A; border-radius: 6px; padding: 0.6rem 0.8rem; }
+    .stat-num { font-size: 1.05rem; font-weight: 700; color: #4B8AF4; }
+    .stat-lbl { font-size: 0.65rem; color: #8FA8CC; margin-top: 0.1rem; }
 
     /* Tree tuner */
-    .param-block { background: #0d1117; border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
+    .param-block { background: #08152A; border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
     .param-name { font-size: 0.7rem; color: #e3b341; font-weight: 700; margin-bottom: 0.15rem; }
-    .param-desc { font-size: 0.65rem; color: #8b949e; margin-bottom: 0.5rem; line-height: 1.5; }
-    .result-box { background: #0a1628; border: 1px solid #1f3a5f; border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.7rem; color: #58a6ff; font-family: monospace; line-height: 1.7; }
-    .result-num { font-size: 1.4rem; font-weight: 700; color: #3fb950; }
-    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #30363d; border-top-color: #3fb950; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+    .param-desc { font-size: 0.65rem; color: #8FA8CC; margin-bottom: 0.5rem; line-height: 1.5; }
+    .result-box { background: #08152A; border: 1px solid #1D55D4; border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.7rem; color: #4B8AF4; font-family: monospace; line-height: 1.7; }
+    .result-num { font-size: 1.4rem; font-weight: 700; color: #4B8AF4; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #1D55D4; border-top-color: #4B8AF4; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     #info_banner {
       position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
-      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-      padding: 0.5rem 1.2rem; font-size: 0.75rem; color: #8b949e; z-index: 999;
+      background: #0F2240; border: 1px solid #1D55D4; border-radius: 8px;
+      padding: 0.5rem 1.2rem; font-size: 0.75rem; color: #8FA8CC; z-index: 999;
       pointer-events: none; opacity: 0; transition: opacity 0.3s; max-width: 50vw; text-align: center;
     }
     #info_banner.show { opacity: 1; }
@@ -91,7 +94,24 @@
 <body>
 
 <div id="topbar">
-  <span class="logo">SmartTek</span>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="705 625 591 598" style="width:28px;height:28px;flex-shrink:0;">
+    <path d="M1110 1191 c-5 0 -12 -2 -16 -3 -51 -9 -96 -26 -145 -54 -7 -4 -41
+-27 -48 -33 -29 -22 -61 -54 -81 -80 -22 -30 -34 -49 -49 -79 -15 -30 -25 -57
+-33 -86 -6 -25 -3 -40 11 -54 8 -9 17 -13 31 -14 13 -1 24 3 36 11 13 8 21 20
+26 37 11 40 22 65 42 98 4 7 6 10 15 22 15 22 41 49 64 67 24 20 58 40 87 51
+10 4 22 8 33 11 2 1 6 2 9 3 2 0 6 1 8 1 14 3 30 6 36 9 12 6 24 20 28 34 2 8
+3 23 1 30 -3 12 -11 22 -23 27 -5 3 -8 3 -15 4 -6 0 -13 -1 -17 -2z M1155
+1027 c-16 -4 -37 -11 -42 -14 -2 0 -3 -1 -4 -1 -2 0 -22 -9 -24 -10 0 -1 -4
+-3 -9 -5 -38 -19 -80 -54 -111 -92 -3 -4 -6 -8 -7 -10 -1 -1 -4 -5 -6 -9 -22
+-30 -45 -79 -53 -112 -4 -17 2 -36 13 -45 18 -15 47 -12 66 7 10 10 14 16 19
+33 9 28 25 58 44 83 8 10 28 30 38 39 17 13 37 26 55 33 9 4 20 8 25 9 14 4
+17 5 23 8 7 3 17 13 21 21 12 24 4 52 -18 62 -5 3 -8 3 -15 4 -6 0 -12 -1 -15
+-1z M1208 869 c-23 -7 -48 -19 -70 -35 -11 -8 -33 -29 -42 -40 -17 -21 -30
+-43 -39 -65 -11 -26 -13 -36 -9 -48 5 -20 21 -29 44 -26 14 3 30 13 39 27 3 3
+7 13 9 18 1 5 8 19 12 25 19 30 42 48 75 59 15 5 22 9 28 16 15 18 14 42 -1
+58 -12 12 -28 16 -46 11z" fill="#5b8def"/>
+  </svg>
+  <span class="logo"><span class="north">North Drone</span><span class="analytics"> Analytics</span></span>
   <span class="dataset">Wietrznia · Bergsterräng &amp; grönområde · 28.5M punkter · EPSG:32633</span>
   <span class="spacer"></span>
   <a class="back" href="viewer_guterweg.html">← Güterweg</a>
@@ -177,15 +197,15 @@
   <div id="tab_roi" class="tab-content">
     <div class="sb-section">
       <div class="sb-title">Klipp &amp; Isolera Region</div>
-      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.75rem;line-height:1.5">
+      <p style="font-size:0.7rem;color:#8FA8CC;margin-bottom:0.75rem;line-height:1.5">
         Lägg till en klippvolym för att fokusera analysen på ett specifikt område. Perfekt för att isolera en enskild sluttning, schakt eller träddunge.
       </p>
       <button class="btn btn-primary" onclick="addClipVolume()">+ Lägg till klippbox</button>
       <button class="btn btn-secondary" onclick="addSphereVolume()">+ Lägg till klippsfär</button>
       <button class="btn btn-success" onclick="toggleClipMode()">Växla: Innanför ↔ Utanför</button>
       <button class="btn btn-warn" onclick="removeAllClips()">Ta bort alla klipp</button>
-      <div style="margin-top:0.6rem; padding:0.6rem; background:#0d1117; border-radius:6px; font-size:0.68rem; color:#8b949e; line-height:1.7">
-        <b style="color:#e6edf3">Klippbox-kontroller:</b><br>
+      <div style="margin-top:0.6rem; padding:0.6rem; background:#08152A; border-radius:6px; font-size:0.68rem; color:#8FA8CC; line-height:1.7">
+        <b style="color:#F7F9FC">Klippbox-kontroller:</b><br>
         Dra gröna handtag → ändra storlek<br>
         Shift+drag på box → flytta<br>
         Del → ta bort markerat klipp
@@ -194,11 +214,11 @@
 
     <div class="sb-section">
       <div class="sb-title">Exportera ROI till Python</div>
-      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.5rem;line-height:1.5">
-        Exportera klippboxens koordinater och generera ett Python-kodblock för att klippa LAZ-filen med <code style="color:#3fb950">laspy</code>.
+      <p style="font-size:0.7rem;color:#8FA8CC;margin-bottom:0.5rem;line-height:1.5">
+        Exportera klippboxens koordinater och generera ett Python-kodblock för att klippa LAZ-filen med <code style="color:#4B8AF4">laspy</code>.
       </p>
       <button class="btn btn-success" onclick="exportROIInfo()">Generera Python-kodblock</button>
-      <div id="roi_output" style="display:none;margin-top:0.5rem;background:#0d1117;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#3fb950;font-family:monospace;line-height:1.6;word-break:break-all;white-space:pre-wrap;"></div>
+      <div id="roi_output" style="display:none;margin-top:0.5rem;background:#08152A;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#4B8AF4;font-family:monospace;line-height:1.6;word-break:break-all;white-space:pre-wrap;"></div>
     </div>
   </div>
 
@@ -206,8 +226,8 @@
   <div id="tab_trees" class="tab-content">
     <div class="sb-section">
       <div class="sb-title">Träddetektionsparametrar</div>
-      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.75rem;line-height:1.5">
-        Justera parametrarna och kör om analysen via det lokala Python-scriptet. Resultaten uppdateras i <code style="color:#3fb950">outputs/reports/tree_analysis.json</code>.
+      <p style="font-size:0.7rem;color:#8FA8CC;margin-bottom:0.75rem;line-height:1.5">
+        Justera parametrarna och kör om analysen via det lokala Python-scriptet. Resultaten uppdateras i <code style="color:#4B8AF4">outputs/reports/tree_analysis.json</code>.
       </p>
 
       <div class="param-block">
@@ -217,7 +237,7 @@
           <input type="range" id="sl_sigma" min="0.5" max="8" step="0.5" value="3.0" />
           <span class="sb-val" id="lbl_sigma">3.0</span>
         </div>
-        <div style="font-size:0.65rem;color:#8b949e">Nuvarande: <b style="color:#e6edf3">3.0</b> &nbsp;·&nbsp; 1.0 = detaljrikt &nbsp;·&nbsp; 6.0 = glättat</div>
+        <div style="font-size:0.65rem;color:#8FA8CC">Nuvarande: <b style="color:#F7F9FC">3.0</b> &nbsp;·&nbsp; 1.0 = detaljrikt &nbsp;·&nbsp; 6.0 = glättat</div>
       </div>
 
       <div class="param-block">
@@ -227,7 +247,7 @@
           <input type="range" id="sl_mindist" min="1" max="15" step="0.5" value="5.0" />
           <span class="sb-val" id="lbl_mindist">5.0 m</span>
         </div>
-        <div style="font-size:0.65rem;color:#8b949e">Nuvarande: <b style="color:#e6edf3">5.0 m</b> &nbsp;·&nbsp; Litet = tätt bestånd &nbsp;·&nbsp; Stort = glest</div>
+        <div style="font-size:0.65rem;color:#8FA8CC">Nuvarande: <b style="color:#F7F9FC">5.0 m</b> &nbsp;·&nbsp; Litet = tätt bestånd &nbsp;·&nbsp; Stort = glest</div>
       </div>
 
       <div class="param-block">
@@ -256,12 +276,12 @@
           Ändra parametrar ovan för att se uppskattad trädantal.<br><br>
           <b>Nuvarande (kört):</b><br>
           &nbsp;sigma=3.0 &nbsp;min_dist=5.0m<br>
-          &nbsp;→ <span style="color:#3fb950; font-weight:700">38 träd</span>
+          &nbsp;→ <span style="color:#4B8AF4; font-weight:700">38 träd</span>
         </div>
       </div>
       <div style="margin-top:0.6rem;">
         <button class="btn btn-success" onclick="generateRunCommand()">Generera körkommando</button>
-        <div id="run_cmd" style="display:none;margin-top:0.5rem;background:#0d1117;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#3fb950;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;"></div>
+        <div id="run_cmd" style="display:none;margin-top:0.5rem;background:#08152A;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#4B8AF4;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;"></div>
       </div>
     </div>
 
@@ -269,18 +289,18 @@
       <div class="sb-title">Kalibreringstabell</div>
       <table style="width:100%;font-size:0.68rem;border-collapse:collapse;">
         <thead>
-          <tr style="color:#8b949e;border-bottom:1px solid #30363d;">
+          <tr style="color:#8FA8CC;border-bottom:1px solid #1D55D4;">
             <th style="text-align:left;padding:0.3rem 0">min_dist</th>
             <th style="text-align:right;padding:0.3rem 0">Detekterade</th>
             <th style="text-align:right;padding:0.3rem 0">Notering</th>
           </tr>
         </thead>
-        <tbody style="color:#e6edf3;">
+        <tbody style="color:#F7F9FC;">
           <tr><td style="padding:0.25rem 0">0.4 m (8 px)</td><td style="text-align:right">1 519</td><td style="text-align:right;color:#b91c1c">för tätt</td></tr>
           <tr><td style="padding:0.25rem 0">2.0 m (40 px)</td><td style="text-align:right">182</td><td style="text-align:right;color:#e3b341">troligen hög</td></tr>
-          <tr><td style="padding:0.25rem 0">4.0 m (80 px)</td><td style="text-align:right">55</td><td style="text-align:right;color:#e6edf3">ok</td></tr>
-          <tr style="background:#1a2a1a"><td style="padding:0.25rem 0"><b>5.0 m (100 px)</b></td><td style="text-align:right"><b>38</b></td><td style="text-align:right;color:#3fb950">✓ valt</td></tr>
-          <tr><td style="padding:0.25rem 0">6.0 m (120 px)</td><td style="text-align:right">32</td><td style="text-align:right;color:#8b949e">lite lågt</td></tr>
+          <tr><td style="padding:0.25rem 0">4.0 m (80 px)</td><td style="text-align:right">55</td><td style="text-align:right;color:#F7F9FC">ok</td></tr>
+          <tr style="background:#0F2240"><td style="padding:0.25rem 0"><b>5.0 m (100 px)</b></td><td style="text-align:right"><b>38</b></td><td style="text-align:right;color:#4B8AF4">✓ valt</td></tr>
+          <tr><td style="padding:0.25rem 0">6.0 m (120 px)</td><td style="text-align:right">32</td><td style="text-align:right;color:#8FA8CC">lite lågt</td></tr>
         </tbody>
       </table>
     </div>
@@ -295,8 +315,8 @@
       <button class="btn btn-secondary" onclick="measureArea()">Mät area</button>
       <button class="btn btn-secondary" onclick="measureVolume()">Mät volym (box)</button>
       <button class="btn btn-danger" onclick="clearMeasurements()" style="margin-top:0.4rem">Rensa alla mätningar</button>
-      <div style="margin-top:0.6rem; padding:0.6rem; background:#0d1117; border-radius:6px; font-size:0.68rem; color:#8b949e; line-height:1.7">
-        <b style="color:#e6edf3">Tips:</b><br>
+      <div style="margin-top:0.6rem; padding:0.6rem; background:#08152A; border-radius:6px; font-size:0.68rem; color:#8FA8CC; line-height:1.7">
+        <b style="color:#F7F9FC">Tips:</b><br>
         Avstånd: klicka punkter, dubbelklicka avsluta<br>
         Höjd: klicka 2 punkter → visar Δz<br>
         Area: rita polygon, dubbelklicka stäng<br>
@@ -457,7 +477,7 @@ mask = (
 roi_las = las[mask]
 roi_las.write("data/raw/roi_wietrznia.laz")
 print(f"ROI: {mask.sum():,} punkter sparade")`;
-  out.style.display = "block"; out.style.color = "#3fb950";
+  out.style.display = "block"; out.style.color = "#4B8AF4";
   out.textContent = code;
 }
 
@@ -489,7 +509,7 @@ function updateTreeEstimate() {
 
   let est = estimateTrees(sigma, minDist, vegTh, heightMin);
   let quality = est < 10 ? "⚠️ för få" : est > 200 ? "⚠️ troligen för många" : "✓ rimligt intervall";
-  let color = est < 10 || est > 200 ? "#e3b341" : "#3fb950";
+  let color = est < 10 || est > 200 ? "#e3b341" : "#4B8AF4";
   document.getElementById("tree_estimate").innerHTML =
     `<b>Uppskattad trädantal:</b><br>` +
     `<span class="result-num" style="color:${color}">${est}</span><br><br>` +

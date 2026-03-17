@@ -118,30 +118,30 @@ def make_scatter(x, y, z, colors, name, size=1.5, opacity=1.0):
     )
 
 LAYOUT_BASE = dict(
-    paper_bgcolor="#0d1117",
-    plot_bgcolor="#0d1117",
-    font=dict(color="#e6edf3", family="DM Mono, monospace", size=11),
+    paper_bgcolor="#08152A",
+    plot_bgcolor="#08152A",
+    font=dict(color="#F7F9FC", family="DM Sans, DM Mono, monospace", size=11),
     margin=dict(l=0, r=0, t=50, b=0),
     legend=dict(
-        bgcolor="#161b22", bordercolor="#30363d", borderwidth=1,
-        font=dict(size=10, color="#e6edf3"),
+        bgcolor="#0F2240", bordercolor="#1D55D4", borderwidth=1,
+        font=dict(size=10, color="#F7F9FC"),
         x=0.01, y=0.99,
     ),
     scene=dict(
-        bgcolor="#0d1117",
-        xaxis=dict(showgrid=True, gridcolor="#21262d", zerolinecolor="#30363d",
-                   tickfont=dict(color="#8b949e", size=8), title=""),
-        yaxis=dict(showgrid=True, gridcolor="#21262d", zerolinecolor="#30363d",
-                   tickfont=dict(color="#8b949e", size=8), title=""),
-        zaxis=dict(showgrid=True, gridcolor="#21262d", zerolinecolor="#30363d",
-                   tickfont=dict(color="#8b949e", size=8), title="Höjd (m)"),
+        bgcolor="#08152A",
+        xaxis=dict(showgrid=True, gridcolor="#1D55D4", zerolinecolor="#1D55D4",
+                   tickfont=dict(color="#8FA8CC", size=8), title=""),
+        yaxis=dict(showgrid=True, gridcolor="#1D55D4", zerolinecolor="#1D55D4",
+                   tickfont=dict(color="#8FA8CC", size=8), title=""),
+        zaxis=dict(showgrid=True, gridcolor="#1D55D4", zerolinecolor="#1D55D4",
+                   tickfont=dict(color="#8FA8CC", size=8), title="Höjd (m)"),
         aspectmode="data",
         camera=dict(eye=dict(x=1.3, y=-1.3, z=0.9)),
     ),
 )
 
 def save_html(fig, path, title):
-    fig.update_layout(title=dict(text=title, font=dict(size=14, color="#58a6ff"),
+    fig.update_layout(title=dict(text=title, font=dict(size=14, color="#4B8AF4"),
                                   x=0.5, xanchor="center"))
     html = pio.to_html(fig, full_html=True, include_plotlyjs="cdn",
                        config=dict(displayModeBar=True, scrollZoom=True))
@@ -448,27 +448,29 @@ index_html = """<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8"/>
-<title>3D Pointcloud Viewers</title>
+<title>North Drone Analytics — 3D Pointcloud Viewers</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@300;400;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d1117;color:#e6edf3;font-family:'Instrument Sans',sans-serif;padding:30px}
-  h1{font-family:'DM Mono',monospace;color:#58a6ff;font-size:1.3rem;letter-spacing:.1em;margin-bottom:6px}
-  .sub{color:#8b949e;font-size:.85rem;margin-bottom:30px}
+  body{background:#08152A;color:#F7F9FC;font-family:'DM Sans',sans-serif;padding:30px}
+  h1{font-family:'DM Sans',sans-serif;font-weight:700;font-size:1.3rem;margin-bottom:6px}
+  h1 .north{color:#FFFFFF}
+  h1 .analytics{color:#4B8AF4}
+  .sub{color:#8FA8CC;font-size:.85rem;margin-bottom:30px}
   .ds{margin-bottom:40px}
-  h2{font-size:1rem;color:#e6edf3;border-bottom:1px solid #30363d;padding-bottom:8px;margin-bottom:16px}
+  h2{font-size:1rem;color:#F7F9FC;border-bottom:1px solid #1D55D4;padding-bottom:8px;margin-bottom:16px}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-  .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;text-decoration:none;
-        color:#e6edf3;transition:border-color .2s,background .2s}
-  .card:hover{border-color:#58a6ff;background:#1c2128}
+  .card{background:#0F2240;border:1px solid #1D55D4;border-radius:8px;padding:16px;text-decoration:none;
+        color:#F7F9FC;transition:border-color .2s,background .2s}
+  .card:hover{border-color:#4B8AF4;background:#1D55D4}
   .card-icon{font-size:1.6rem;margin-bottom:8px}
-  .card-title{font-size:.9rem;font-weight:600;margin-bottom:4px;color:#58a6ff}
-  .card-desc{font-size:.78rem;color:#8b949e;line-height:1.4}
-  footer{margin-top:40px;color:#30363d;font-family:'DM Mono',monospace;font-size:.7rem}
+  .card-title{font-size:.9rem;font-weight:600;margin-bottom:4px;color:#4B8AF4}
+  .card-desc{font-size:.78rem;color:#8FA8CC;line-height:1.4}
+  footer{margin-top:40px;color:#667388;font-family:'DM Mono',monospace;font-size:.7rem}
 </style>
 </head>
 <body>
-<h1>3D POINT CLOUD VIEWERS</h1>
+<h1><span class="north">North Drone</span><span class="analytics"> Analytics</span></h1>
 <p class="sub">Interaktiva WebGL-visualiseringar · Roteras med vänsterklick · Zooma med scroll · Panorera med högerklick</p>
 """
 
@@ -491,7 +493,7 @@ for ds in DATASETS:
             index_html += f'<a class="card" href="{slug}/{fname}" target="_blank"><div class="card-icon">{icon}</div><div class="card-title">{title}</div><div class="card-desc">{desc}</div></a>'
     index_html += "</div></div>"
 
-index_html += "<footer>Geodata Analysis Pipeline · 3D Viewers · WebGL via Plotly</footer></body></html>"
+index_html += "<footer>North Drone Analytics · 3D Viewers · WebGL via Plotly</footer></body></html>"
 
 (OUT_BASE / "index.html").write_text(index_html, encoding="utf-8")
 print(f"  → index.html")

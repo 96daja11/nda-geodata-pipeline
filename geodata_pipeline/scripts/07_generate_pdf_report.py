@@ -387,28 +387,28 @@ HTML = f"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@300;400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
   :root {{
-    --dark:   #0d1117;
-    --panel:  #161b22;
-    --border: #30363d;
-    --text:   #e6edf3;
-    --accent: #58a6ff;
+    --dark:   #08152A;
+    --panel:  #0F2240;
+    --border: #1D55D4;
+    --text:   #F7F9FC;
+    --accent: #4B8AF4;
     --crit:   #9b1d1d;
     --high:   #b5451b;
     --med:    #c87d2f;
     --low:    #2d6a4f;
-    --muted:  #8b949e;
+    --muted:  #8FA8CC;
   }}
 
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 
   body {{
-    font-family: 'Instrument Sans', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     font-size: 9pt;
     background: white;
-    color: #1a1a2e;
+    color: #1A2B42;
     line-height: 1.5;
   }}
 
@@ -425,17 +425,17 @@ HTML = f"""<!DOCTYPE html>
     justify-content: space-between;
   }}
   .cover-logo {{
-    font-family: 'DM Mono', monospace;
-    font-size: 11pt;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13pt;
+    font-weight: 700;
     margin-bottom: 3mm;
   }}
+  .cover-logo .north {{ color: #FFFFFF; }}
+  .cover-logo .analytics {{ color: #4B8AF4; }}
   .cover h1 {{
-    font-family: 'DM Serif Display', serif;
+    font-family: 'DM Sans', sans-serif;
     font-size: 32pt;
-    font-weight: 400;
+    font-weight: 700;
     color: white;
     line-height: 1.2;
     margin-bottom: 6mm;
@@ -509,20 +509,20 @@ HTML = f"""<!DOCTYPE html>
   .page:last-child {{ page-break-after: auto; }}
 
   h2 {{
-    font-family: 'DM Serif Display', serif;
+    font-family: 'DM Sans', sans-serif;
     font-size: 18pt;
-    font-weight: 400;
-    color: #1a1a2e;
-    border-bottom: 2px solid #1a1a2e;
+    font-weight: 700;
+    color: #08152A;
+    border-bottom: 2px solid #08152A;
     padding-bottom: 2mm;
     margin-bottom: 6mm;
     margin-top: 4mm;
   }}
   h3 {{
-    font-family: 'Instrument Sans', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     font-size: 10pt;
     font-weight: 600;
-    color: #2d3561;
+    color: #1D55D4;
     margin-bottom: 3mm;
     margin-top: 5mm;
     text-transform: uppercase;
@@ -536,7 +536,7 @@ HTML = f"""<!DOCTYPE html>
     font-size: 8pt;
     margin-bottom: 5mm;
   }}
-  thead tr {{ background: #1a1a2e; color: white; }}
+  thead tr {{ background: #08152A; color: white; }}
   thead th {{
     padding: 2.5mm 3mm;
     text-align: left;
@@ -560,10 +560,10 @@ HTML = f"""<!DOCTYPE html>
   .fig-half   {{ width: 49%; display: inline-block; vertical-align: top; margin: 2mm 0.5%; }}
   .fig-caption {{
     font-size: 7.5pt;
-    color: #555;
+    color: #667388;
     font-style: italic;
     margin-bottom: 2mm;
-    font-family: 'Instrument Sans', sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }}
   img {{ max-width: 100%; display: block; border-radius: 3px; }}
 
@@ -575,7 +575,7 @@ HTML = f"""<!DOCTYPE html>
   }}
   .metric {{
     background: #f5f6fa;
-    border-left: 3px solid #2d3561;
+    border-left: 3px solid #1D55D4;
     padding: 3mm 4mm;
     border-radius: 0 3px 3px 0;
   }}
@@ -584,11 +584,11 @@ HTML = f"""<!DOCTYPE html>
     font-family: 'DM Mono', monospace;
     font-size: 13pt;
     font-weight: 600;
-    color: #1a1a2e;
+    color: #08152A;
   }}
   .metric .key {{
     font-size: 7pt;
-    color: #666;
+    color: #667388;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 0.5mm;
@@ -608,8 +608,8 @@ HTML = f"""<!DOCTYPE html>
   }}
 
   .callout {{
-    background: #edf2ff;
-    border-left: 4px solid #2d3561;
+    background: #D6E6FF;
+    border-left: 4px solid #1D55D4;
     padding: 3mm 5mm;
     border-radius: 0 4px 4px 0;
     margin: 4mm 0;
@@ -619,7 +619,7 @@ HTML = f"""<!DOCTYPE html>
     background: #e8f5e9;
     border-left-color: #2d6a4f;
   }}
-  .callout strong {{ color: #1a1a2e; }}
+  .callout strong {{ color: #08152A; }}
 
   .vol-fig {{ margin: 4mm 0; page-break-inside: avoid; }}
 
@@ -667,7 +667,7 @@ HTML = f"""<!DOCTYPE html>
 <!-- ═══════════════════════════ COVER PAGE ═══════════════════════════ -->
 <div class="cover">
   <div>
-    <div class="cover-logo">Geodata Analysis Pipeline — WebODM Export</div>
+    <div class="cover-logo"><span class="north">North Drone</span><span class="analytics"> Analytics</span></div>
     <h1>Terränganalys&shy;rapport</h1>
     <div class="cover-sub">
       Dataset: {DATASET_TITLE}<br/>
@@ -700,7 +700,7 @@ HTML = f"""<!DOCTYPE html>
 
     <div class="cover-stats">
       <div class="stat-box">
-        <span class="num" style="color:#58a6ff">{laz_n_pts_M:.1f}M</span>
+        <span class="num" style="color:#4B8AF4">{laz_n_pts_M:.1f}M</span>
         <span class="lbl">LiDAR-punkter</span>
       </div>
       {cover_stat2}
@@ -716,7 +716,7 @@ HTML = f"""<!DOCTYPE html>
   </div>
 
   <div class="cover-footer">
-    Geodata Analysis Pipeline · {DATASET_TITLE} · Intern teknisk rapport · All data bearbetad lokalt · {date_str}
+    North Drone Analytics · {DATASET_TITLE} · Intern teknisk rapport · All data bearbetad lokalt · {date_str}
   </div>
 </div>
 
@@ -987,7 +987,7 @@ HTML = f"""<!DOCTYPE html>
 </div>
 
 <footer>
-  <span>Geodata Analysis Pipeline — {DATASET_TITLE} — Intern rapport</span>
+  <span>North Drone Analytics — {DATASET_TITLE} — Intern rapport</span>
   <span>Genererad: {date_str} | {_cfg.get("crs", "EPSG:32633")}</span>
   <span>{FOOTER_DATASET}</span>
 </footer>
