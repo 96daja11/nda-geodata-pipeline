@@ -13,6 +13,7 @@ warnings.filterwarnings("ignore")
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 # ── GPU setup ─────────────────────────────────────────────────────────────────
@@ -48,12 +49,46 @@ from skimage.segmentation import watershed
 from skimage import measure
 from tqdm import tqdm
 
+# ── CLI & Config ──────────────────────────────────────────────────────────────
+import argparse, json as _json
+
+def _parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="Dataset root directory (default: two levels above this script)")
+    return ap.parse_args()
+
+def _load_config(project_dir: Path) -> dict:
+    """Load dataset-specific config.json if present, else return empty dict."""
+    cfg_path = project_dir / "config.json"
+    if cfg_path.exists():
+        return _json.loads(cfg_path.read_text())
+    return {}
+
+_args = _parse_args()
+BASE = _args.project_dir.resolve() if _args.project_dir else Path(__file__).resolve().parent.parent
+_cfg = _load_config(BASE)
+
+# Guard: skip if tree_analysis.enabled == False in config
+_tree_cfg     = _cfg.get("tree_analysis", {})
+if _tree_cfg.get("enabled", True) == False:
+    print("=" * 60)
+    print("STEG 5b — TRÄDANALYS")
+    print("=" * 60)
+    print("\nSkipper steg 5b: tree_analysis.enabled=false i config.json")
+    sys.exit(0)
+
+SIGMA         = _tree_cfg.get("sigma",            3.0)
+VEG_THRESHOLD = _tree_cfg.get("veg_threshold_m",  1.5)
+MIN_DISTANCE_PX = _tree_cfg.get("min_distance_px", 100)
+TREE_HEIGHT_MIN = _tree_cfg.get("tree_height_min_m", 3.0)
+
 print("=" * 60)
 print("STEG 5b — TRÄDANALYS")
 print("=" * 60)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE      = Path(__file__).parent.parent
+# BASE is set above via --project-dir
 RAW       = BASE / "data" / "raw"
 DERIVED   = BASE / "data" / "derived"
 OUT_FIGS  = BASE / "outputs" / "figures"
@@ -119,10 +154,6 @@ with rasterio.open(
     dst.write(chm.astype(np.float32), 1)
 print(f"  CHM sparad: {chm_path}")
 
-# ── Parameters ────────────────────────────────────────────────────────────────
-SIGMA = 3.0           # Gaussian smoothing — larger σ suppresses intra-crown bumps
-VEG_THRESHOLD = 1.5   # m — minimum CHM height to be considered vegetation
-
 # ── Step 2: Gaussian smoothing ────────────────────────────────────────────────
 print(f"\n[2/8] Gaussisk utjämning (sigma={SIGMA} px = {SIGMA*pixel_m:.2f} m)...")
 
@@ -138,11 +169,6 @@ print(f"  Utjämnad CHM: max={chm_smooth.max():.2f} m  |  sigma={SIGMA} px")
 
 # ── Step 3: Tree detection via local maxima ───────────────────────────────────
 print("\n[3/8] Detekterar trädtoppar via lokala maxima...")
-
-MIN_DISTANCE_PX = 100   # pixels = 5.0 m — minimum distance between tree tops
-                        # Calibrated: gives ~38 trees for this dataset (user estimate 30-60)
-                        # at sigma=3: intra-crown bumps are suppressed so each crown → 1 top
-TREE_HEIGHT_MIN = 3.0   # meters — minimum tree top height
 
 # peak_local_max runs on CPU
 local_max = peak_local_max(
@@ -414,7 +440,7 @@ stats_lines = [
     ("Maxhöjd",                 f"{max_height_all:.2f} m"),
     ("Total krontäckyta",       f"{canopy_area_m2/10000:.2f} ha"),
     ("Medelkrona",              f"{results_json['crown_area_stats']['mean_m2']:.1f} m²"),
-    ("Mediankreona",            f"{results_json['crown_area_stats']['median_m2']:.1f} m²"),
+    ("Mediankrona",             f"{results_json['crown_area_stats']['median_m2']:.1f} m²"),
     ("0.5–2 m klassen",         f"{height_dist['0.5-2m']} träd"),
     ("2–5 m klassen",           f"{height_dist['2-5m']} träd"),
     ("5–10 m klassen",          f"{height_dist['5-10m']} träd"),
@@ -440,7 +466,7 @@ gpu_lbl = f"GPU: {GPU_NAME}" if GPU_AVAILABLE else "GPU: CPU fallback"
 fig.text(0.99, 0.01, gpu_lbl, ha="right", va="bottom",
          fontsize=7, color="#586069", style="italic")
 fig.suptitle(
-    f"Steg 5b — Trädanalys: Wietrznia  |  {n_trees_valid:,} träd  |  krontäckning {canopy_pct:.1f}%",
+    f"Steg 5b — Trädanalys  |  {n_trees_valid:,} träd  |  krontäckning {canopy_pct:.1f}%",
     fontsize=14, fontweight="bold", color=TEXT, y=0.98
 )
 fig.patch.set_facecolor(DARK)
@@ -597,7 +623,7 @@ gpu_lbl = f"GPU: {GPU_NAME}" if GPU_AVAILABLE else "GPU: CPU fallback"
 fig2.text(0.99, 0.01, gpu_lbl, ha="right", va="bottom",
           fontsize=7, color="#586069", style="italic")
 fig2.suptitle(
-    f"Steg 5b — CHM Höjdprofiler  |  Wietrznia  |  {n_trees_valid:,} träd  |  täckning {canopy_pct:.1f}%",
+    f"Steg 5b — CHM Höjdprofiler  |  {n_trees_valid:,} träd  |  täckning {canopy_pct:.1f}%",
     fontsize=13, fontweight="bold", color=TEXT, y=1.01
 )
 fig2.patch.set_facecolor(DARK)

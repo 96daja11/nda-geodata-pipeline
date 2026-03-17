@@ -1,0 +1,23 @@
+{
+  "dataset_name": "Wietrznia",
+  "dataset_slug": "wietrznia",
+  "crs": "EPSG:32633",
+  "anomaly": {
+    "radii_m": [5.0, 10.0, 20.0],
+    "min_area_m2": 5.0,
+    "threshold_depression_m": -0.50,
+    "threshold_elevation_m": 0.60
+  },
+  "tree_analysis": {
+    "enabled": true,
+    "sigma": 3.0,
+    "veg_threshold_m": 1.5,
+    "min_distance_px": 100,
+    "tree_height_min_m": 3.0
+  },
+  "report": {
+    "title": "Wietrznia — Grönområde med bergsterräng",
+    "footer_dataset": "Wietrznia 2022",
+    "pdf_name": "geodata_analys_rapport_wietrznia.pdf"
+  }
+}

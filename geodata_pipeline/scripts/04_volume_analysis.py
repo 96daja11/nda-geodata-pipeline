@@ -16,18 +16,38 @@ try:
     GPU_AVAILABLE = True
     _dev = cp.cuda.Device(0)
     GPU_NAME = cp.cuda.runtime.getDeviceProperties(0)["name"].decode()
-    print(f"🚀 GPU: {GPU_NAME} | {_dev.mem_info[1]//1024**2} MB VRAM")
+    print(f"GPU: {GPU_NAME} | {_dev.mem_info[1]//1024**2} MB VRAM")
 except Exception as _e:
     import numpy as cp
     GPU_AVAILABLE = False; GPU_NAME = "CPU fallback"
-    print(f"⚠️  CPU mode ({_e})")
+    print(f"CPU mode ({_e})")
 
 import numpy as np, rasterio, matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
 from tqdm import tqdm
 
-BASE = Path(__file__).parent.parent
+# ── CLI & Config ──────────────────────────────────────────────────────────────
+import argparse, json as _json
+
+def _parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="Dataset root directory (default: two levels above this script)")
+    return ap.parse_args()
+
+def _load_config(project_dir: Path) -> dict:
+    """Load dataset-specific config.json if present, else return empty dict."""
+    cfg_path = project_dir / "config.json"
+    if cfg_path.exists():
+        return _json.loads(cfg_path.read_text())
+    return {}
+
+_args = _parse_args()
+BASE = _args.project_dir.resolve() if _args.project_dir else Path(__file__).resolve().parent.parent
+_cfg = _load_config(BASE)
+
+# BASE is set above via --project-dir
 RAW = BASE/"data"/"raw"; OUT_FIGS = BASE/"outputs"/"figures"; OUT_REPS = BASE/"outputs"/"reports"
 OUT_FIGS.mkdir(parents=True, exist_ok=True); OUT_REPS.mkdir(parents=True, exist_ok=True)
 DARK="#0d1117"; PANEL="#161b22"; BORDER="#30363d"; TEXT="#e6edf3"
@@ -42,7 +62,7 @@ print(f"DTM: {dtm.shape[1]}×{dtm.shape[0]} px")
 
 dep_json = OUT_REPS/"03_depressions.json"
 if not dep_json.exists():
-    print("⚠️  Kör steg 3 först"); exit(1)
+    print("Kör steg 3 först"); exit(1)
 with open(dep_json) as f: dep_data = json.load(f)
 
 depressions_raw = dep_data.get("depressions", [])
@@ -93,10 +113,10 @@ for dep in tqdm(top5, desc="Volymanalys"):
     for k,v in volumes.items(): print(f"    {k:<25}: {v:.3f} m³")
     all_results.append({"object_id":int(lbl),"area_m2":round(area,2),"max_depth_m":round(mdep,3),
                          "volumes_m3":{k:round(v,3) for k,v in volumes.items()}})
-    
+
     bv_arr = np.concatenate([dtm_nn[0,:],dtm_nn[-1,:],dtm_nn[:,0],dtm_nn[:,-1]])
     ref_val = float(np.nanmean(bv_arr)); depth_map = np.maximum(ref_val-dtm_nn,0)
-    
+
     fig = plt.figure(figsize=(18,8),facecolor=DARK)
     ax3d = fig.add_subplot(131,projection="3d")
     rp_,cp_ = dtm_nn.shape; s3=max(1,max(rp_,cp_)//80)
@@ -106,13 +126,13 @@ for dep in tqdm(top5, desc="Volymanalys"):
     ax3d.set_title(f"3D-vy #{lbl}",color=TEXT,fontsize=10)
     ax3d.tick_params(colors=TEXT,labelsize=6)
     for pane in [ax3d.xaxis.pane,ax3d.yaxis.pane,ax3d.zaxis.pane]: pane.fill=False
-    
+
     ax2 = fig.add_subplot(132); ax2.set_facecolor(PANEL); ax2.axis("off")
     im = ax2.imshow(np.ma.masked_where(depth_map<0.02,depth_map),cmap="Blues_r",interpolation="bilinear")
     cb=plt.colorbar(im,ax=ax2,fraction=0.046,pad=0.02); cb.set_label("Djup (m)",color=TEXT,fontsize=7)
     cb.ax.yaxis.set_tick_params(color=TEXT,labelcolor=TEXT,labelsize=6); cb.outline.set_edgecolor(BORDER)
     ax2.set_title(f"Djupkarta #{lbl}  ({area:.0f}m², avv {mdep:.2f}m)",color=TEXT,fontsize=9,pad=5)
-    
+
     ax3 = fig.add_subplot(133); ax3.set_facecolor(PANEL)
     methods=list(volumes.keys()); vals=list(volumes.values())
     bars=ax3.bar(methods,vals,color=["#1565C0","#2E7D32","#E65100"][:len(methods)],edgecolor=DARK,width=0.55)
@@ -123,7 +143,7 @@ for dep in tqdm(top5, desc="Volymanalys"):
     ax3.set_ylim(0,max(vals)*1.3 if vals else 1); ax3.set_title("Volymer",color=TEXT,fontsize=9,pad=5)
     for sp in ["top","right"]: ax3.spines[sp].set_visible(False)
     for sp in ["bottom","left"]: ax3.spines[sp].set_color(BORDER)
-    
+
     fig.patch.set_facecolor(DARK)
     fig.text(0.99,0.01,f"GPU: {GPU_NAME}",ha="right",va="bottom",fontsize=7,color="#586069",style="italic")
     fig.suptitle(f"Steg 4 — Volymanalys: Objekt #{lbl}",fontsize=14,fontweight="bold",color=TEXT,y=0.98)
@@ -134,5 +154,5 @@ for dep in tqdm(top5, desc="Volymanalys"):
 
 json_path = OUT_REPS/"04_volumes.json"
 with open(json_path,"w",encoding="utf-8") as f: json.dump(all_results,f,indent=2,ensure_ascii=False)
-print(f"\n✅ JSON: {json_path}")
+print(f"\nJSON: {json_path}")
 print("Steg 4 klar.\n" + "="*60)

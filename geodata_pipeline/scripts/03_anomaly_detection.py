@@ -22,13 +22,13 @@ try:
     GPU_AVAILABLE = True
     _dev = cp.cuda.Device(0)
     GPU_NAME = cp.cuda.runtime.getDeviceProperties(0)["name"].decode()
-    print(f"🚀 GPU: {GPU_NAME} | {_dev.mem_info[1]//1024**2} MB VRAM")
+    print(f"GPU: {GPU_NAME} | {_dev.mem_info[1]//1024**2} MB VRAM")
 except (ImportError, Exception) as _e:
     import numpy as cp
     import scipy.ndimage as cpnd
     GPU_AVAILABLE = False
     GPU_NAME = "CPU fallback"
-    print(f"⚠️  GPU: Not available ({_e})")
+    print(f"GPU: Not available ({_e})")
 
 import numpy as np
 import rasterio
@@ -38,12 +38,32 @@ from scipy.ndimage import uniform_filter, label as scipy_label
 from skimage import measure
 from tqdm import tqdm
 
+# ── CLI & Config ──────────────────────────────────────────────────────────────
+import argparse, json as _json
+
+def _parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="Dataset root directory (default: two levels above this script)")
+    return ap.parse_args()
+
+def _load_config(project_dir: Path) -> dict:
+    """Load dataset-specific config.json if present, else return empty dict."""
+    cfg_path = project_dir / "config.json"
+    if cfg_path.exists():
+        return _json.loads(cfg_path.read_text())
+    return {}
+
+_args = _parse_args()
+BASE = _args.project_dir.resolve() if _args.project_dir else Path(__file__).resolve().parent.parent
+_cfg = _load_config(BASE)
+
 print("=" * 60)
 print("STEG 3 — DETEKTERA TERRÄNGANOMALIER")
 print("=" * 60)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE     = Path(__file__).parent.parent
+# BASE is set above via --project-dir
 RAW      = BASE / "data" / "raw"
 OUT_FIGS = BASE / "outputs" / "figures"
 OUT_REPS = BASE / "outputs" / "reports"
@@ -73,8 +93,8 @@ dtm_filled = np.where(np.isnan(dtm), np.nanmedian(dtm), dtm)
 # Depressions: dtm << local_mean (negative deviation)
 # Elevations:  dtm >> local_mean (positive deviation)
 
-RADII_M = [2.5, 5.0, 10.0]   # meters — multi-scale analysis
-MIN_AREA_M2 = 2.0              # minimum anomaly area to report
+RADII_M     = _cfg.get("anomaly", {}).get("radii_m",        [2.5, 5.0, 10.0])
+MIN_AREA_M2 = _cfg.get("anomaly", {}).get("min_area_m2",    2.0)
 
 all_deviations = {}
 
@@ -99,12 +119,13 @@ for radius_m in RADII_M:
     all_deviations[label_str] = dev_cpu
     print(f"OK  (range {dev_cpu.min():.3f} – {dev_cpu.max():.3f} m)")
 
-# Use 5m scale as primary
-primary_dev = all_deviations["5.0m"]
+# Use middle scale as primary (index 1, or first if only 1 element)
+primary_key = f"{RADII_M[min(1, len(RADII_M)-1)]:.1f}m"
+primary_dev = all_deviations[primary_key]
 
 # Identify depressions (below surroundings) and elevations (above surroundings)
-threshold_low  = -0.25   # 25 cm below surroundings
-threshold_high = +0.30   # 30 cm above surroundings
+threshold_low  = _cfg.get("anomaly", {}).get("threshold_depression_m", -0.25)
+threshold_high = _cfg.get("anomaly", {}).get("threshold_elevation_m",   0.30)
 
 depression_mask = primary_dev < threshold_low
 elevation_mask  = primary_dev > threshold_high
@@ -178,7 +199,7 @@ results = {
 json_path = OUT_REPS / "03_depressions.json"
 with open(json_path, "w", encoding="utf-8") as f:
     json.dump(results, f, indent=2, ensure_ascii=False)
-print(f"\n✅ JSON sparad: {json_path}")
+print(f"\nJSON sparad: {json_path}")
 
 # ── Figure: 4-panel ───────────────────────────────────────────────────────────
 print("\nGenererar figur 03_depressions.png...")
@@ -198,7 +219,7 @@ def add_cbar(im, ax, label):
 
 # Panel 1: Primary deviation map (diverging colormap)
 ax = axes[0, 0]
-styled_ax(ax, "Lokal terrängavvikelse (5m radius)",
+styled_ax(ax, f"Lokal terrängavvikelse ({primary_key} radius)",
           "Blå=fördjupning, Röd=upphöjning")
 vmax = float(np.nanpercentile(np.abs(primary_dev), 98))
 im = ax.imshow(primary_dev, cmap="RdBu_r", vmin=-vmax, vmax=vmax,
@@ -208,10 +229,10 @@ add_cbar(im, ax, "Avvikelse från lokal medelnivå (m)")
 # Panel 2: Multi-scale comparison
 ax = axes[0, 1]
 styled_ax(ax, "Multi-skala avvikelse",
-          f"Ø {RADII_M[0]}m vs {RADII_M[1]}m vs {RADII_M[2]}m")
+          f"Ø {RADII_M[0]}m vs {RADII_M[min(1,len(RADII_M)-1)]}m vs {RADII_M[-1]}m")
 # Show difference between finest and coarsest scale
 fine   = all_deviations[f"{RADII_M[0]:.1f}m"]
-coarse = all_deviations[f"{RADII_M[2]:.1f}m"]
+coarse = all_deviations[f"{RADII_M[-1]:.1f}m"]
 scale_diff = fine - coarse  # high = locally rough, low = smooth
 im = ax.imshow(scale_diff, cmap="PiYG", interpolation="bilinear",
                vmin=float(np.nanpercentile(scale_diff, 2)),

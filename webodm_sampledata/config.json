@@ -1,0 +1,19 @@
+{
+  "dataset_name": "Güterweg Ritzing",
+  "dataset_slug": "guterweg",
+  "crs": "EPSG:32633",
+  "anomaly": {
+    "radii_m": [2.5, 5.0, 10.0],
+    "min_area_m2": 2.0,
+    "threshold_depression_m": -0.25,
+    "threshold_elevation_m": 0.30
+  },
+  "tree_analysis": {
+    "enabled": false
+  },
+  "report": {
+    "title": "Güterweg Ritzing — Geodataanalys",
+    "footer_dataset": "Güterweg Ritzing 2022",
+    "pdf_name": "geodata_analys_rapport_guterweg.pdf"
+  }
+}

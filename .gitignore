@@ -46,18 +46,17 @@ outputs/reports/
 webodm_sampledata/.venv/
 webodm_sampledata_wietrznia/.venv/
 
-# WebODM sampledata raw/derived data (large, download separately)
-webodm_sampledata/data/raw/
-webodm_sampledata/data/derived/
+# WebODM dataset directories — only config.json is tracked; data is local
+webodm_sampledata/data/
 webodm_sampledata/outputs/
 webodm_sampledata/__pycache__/
-webodm_sampledata/scripts/__pycache__/
 
-webodm_sampledata_wietrznia/data/raw/
-webodm_sampledata_wietrznia/data/derived/
+webodm_sampledata_wietrznia/data/
 webodm_sampledata_wietrznia/outputs/
 webodm_sampledata_wietrznia/__pycache__/
-webodm_sampledata_wietrznia/scripts/__pycache__/
+
+# Pipeline script cache
+geodata_pipeline/scripts/__pycache__/
 
 # IDE
 .idea/

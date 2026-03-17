@@ -33,12 +33,32 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.colors import LightSource
 
+# ── CLI & Config ──────────────────────────────────────────────────────────────
+import argparse, json as _json
+
+def _parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="Dataset root directory (default: two levels above this script)")
+    return ap.parse_args()
+
+def _load_config(project_dir: Path) -> dict:
+    """Load dataset-specific config.json if present, else return empty dict."""
+    cfg_path = project_dir / "config.json"
+    if cfg_path.exists():
+        return _json.loads(cfg_path.read_text())
+    return {}
+
+_args = _parse_args()
+BASE = _args.project_dir.resolve() if _args.project_dir else Path(__file__).resolve().parent.parent
+_cfg = _load_config(BASE)
+
 print("=" * 60)
 print("STEG 2 — TERRÄNGANALYS")
 print("=" * 60)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-BASE     = Path(__file__).parent.parent
+# BASE is set above via --project-dir
 RAW      = BASE / "data" / "raw"
 OUT_FIGS = BASE / "outputs" / "figures"
 OUT_FIGS.mkdir(parents=True, exist_ok=True)

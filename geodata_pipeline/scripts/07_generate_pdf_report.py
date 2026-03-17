@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Steg 7 — Generera sammanfattande PDF-rapport
-Sammanfattar all data, siffror och figurer från stegen 0–6 i ett professionellt PDF-dokument.
+Sammanfattar all data, siffror och figurer från stegen 0–6 (inkl. valfri 5b trädanalys)
+i ett professionellt PDF-dokument.
 """
 import matplotlib
 matplotlib.use("Agg")
@@ -10,22 +11,47 @@ import warnings; warnings.filterwarnings("ignore")
 import json, base64, datetime
 from pathlib import Path
 
-BASE      = Path(__file__).parent.parent
+# ── CLI & Config ──────────────────────────────────────────────────────────────
+import argparse, json as _json
+
+def _parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="Dataset root directory (default: two levels above this script)")
+    return ap.parse_args()
+
+def _load_config(project_dir: Path) -> dict:
+    """Load dataset-specific config.json if present, else return empty dict."""
+    cfg_path = project_dir / "config.json"
+    if cfg_path.exists():
+        return _json.loads(cfg_path.read_text())
+    return {}
+
+_args = _parse_args()
+BASE = _args.project_dir.resolve() if _args.project_dir else Path(__file__).resolve().parent.parent
+_cfg = _load_config(BASE)
+
 FIGS      = BASE / "outputs" / "figures"
 REPS      = BASE / "outputs" / "reports"
-OUT_PDF   = REPS / "geodata_analys_rapport.pdf"
+OUT_PDF   = REPS / _cfg.get("report", {}).get("pdf_name", "geodata_analys_rapport.pdf")
 REPS.mkdir(parents=True, exist_ok=True)
+
+# Dataset title and footer from config
+DATASET_TITLE  = _cfg.get("report", {}).get("title",          "Geodataanalys")
+FOOTER_DATASET = _cfg.get("report", {}).get("footer_dataset", "Geodataanalys 2022")
 
 print("=" * 60)
 print("STEG 7 — GENERERA PDF-RAPPORT")
 print("=" * 60)
 
 # ── Load JSON data from previous steps ───────────────────────────────────────
-dep_data = {}
-vol_data = []
+dep_data  = {}
+vol_data  = []
+tree_data = {}
 
-dep_json = REPS / "03_depressions.json"
-vol_json = REPS / "04_volumes.json"
+dep_json  = REPS / "03_depressions.json"
+vol_json  = REPS / "04_volumes.json"
+tree_json = REPS / "05b_tree_analysis.json"
 
 if dep_json.exists():
     with open(dep_json) as f:
@@ -34,11 +60,28 @@ if vol_json.exists():
     with open(vol_json) as f:
         vol_data = json.load(f)
 
+# Tree analysis: conditional on config and presence of JSON
+tree_cfg_enabled = _cfg.get("tree_analysis", {}).get("enabled", True)
+INCLUDE_TREES = tree_cfg_enabled and tree_json.exists()
+
+if tree_json.exists():
+    with open(tree_json) as f:
+        tree_data = json.load(f)
+    if INCLUDE_TREES:
+        print(f"  Trädanalys laddad: {tree_data.get('n_trees', 0):,} träd")
+    else:
+        print("  Trädanalys JSON finns men är inaktiverad i config.json.")
+else:
+    if tree_cfg_enabled:
+        print("  Info: 05b_tree_analysis.json saknas — kör steg 5b om trädanalys önskas.")
+    else:
+        print("  Trädanalys inaktiverad i config.json (tree_analysis.enabled=false).")
+
 # ── Raster metadata ───────────────────────────────────────────────────────────
 import numpy as np
 import rasterio
 
-DATA_RAW = BASE / "data" / "raw"
+DATA_RAW    = BASE / "data" / "raw"
 raster_meta = {}
 
 for name, fname in [("DSM", "dsm.tif"), ("DTM", "dtm.tif"), ("Orthophoto", "odm_orthophoto.tif")]:
@@ -130,7 +173,7 @@ for v in vol_data:
     vols = v.get("volumes_m3", {})
     p95  = vols.get("Percentil 95", 0)
     km   = vols.get("Kantmedelvärde", 0)
-    itp  = vols.get("Interpolerad yta", vols.get("Interpolerad yta", km))
+    itp  = vols.get("Interpolerad yta", km)
     vol_rows += f"""
     <tr>
       <td>#{v['object_id']}</td>
@@ -147,7 +190,6 @@ for v in vol_data[:3]:
     oid = v["object_id"]
     fp  = FIGS / f"04_volume_obj{oid:03d}.png"
     if not fp.exists():
-        # try without leading zeros
         fp = FIGS / f"04_volume_obj{oid}.png"
     vol_fig_tags += f"""
     <div class="vol-fig">
@@ -169,7 +211,7 @@ for d in top_deps:
 # ── Raster table rows ─────────────────────────────────────────────────────────
 raster_rows = ""
 for name, m in raster_meta.items():
-    extra = f"{m['vmin']:.2f}" if name != "Orthophoto" else "—"
+    extra  = f"{m['vmin']:.2f}" if name != "Orthophoto" else "—"
     extra2 = f"{m['vmax']:.2f}" if name != "Orthophoto" else "—"
     extra3 = f"{m['vmean']:.2f} ± {m['vstd']:.2f}" if name != "Orthophoto" else "—"
     raster_rows += f"""
@@ -196,9 +238,29 @@ if laz_meta:
       <td>{100*cnt/total_pts:.1f}%</td>
     </tr>"""
 
+# ── Tree analysis section helpers ─────────────────────────────────────────────
+n_trees_val       = tree_data.get("n_trees", 0)
+canopy_pct_val    = tree_data.get("canopy_coverage_pct", 0.0)
+tree_density_val  = tree_data.get("tree_density_per_ha", 0.0)
+mean_height_val   = tree_data.get("mean_height_m", 0.0)
+max_height_val    = tree_data.get("max_height_m", 0.0)
+canopy_area_val   = tree_data.get("total_canopy_area_m2", 0.0)
+height_dist_val   = tree_data.get("height_distribution", {})
+crown_stats_val   = tree_data.get("crown_area_stats", {})
+
+tree_height_rows = ""
+for cls_lbl, cnt_v in height_dist_val.items():
+    pct_v = 100.0 * cnt_v / max(n_trees_val, 1)
+    tree_height_rows += f"""
+    <tr>
+      <td>{cls_lbl}</td>
+      <td>{cnt_v:,}</td>
+      <td>{pct_v:.1f}%</td>
+    </tr>"""
+
 date_str = datetime.date.today().strftime("%Y-%m-%d")
 
-# ── Pre-computed template variables (avoid f-string escaping issues) ──────────
+# ── Pre-computed template variables ───────────────────────────────────────────
 laz_classes       = laz_meta.get("classes", {})
 laz_n_pts         = laz_meta.get("n_pts", 1)
 laz_size_mb       = laz_meta.get("size_mb", 0)
@@ -232,6 +294,92 @@ t_vsteep          = ts.get("pct_vsteep", 0)
 t_steep_total     = t_steep + t_vsteep
 
 top_dep_max_depth = top_deps[0]["max_depth_m"] if top_deps else 0.0
+
+# Approximate covered area from raster size and resolution
+dsm_w = dsm_meta.get("width", 2695)
+dsm_h = dsm_meta.get("height", 3113)
+covered_area_ha = (dsm_w * dsm_res * dsm_h * dsm_res) / 10000.0
+
+# ── Conditional tree page HTML ────────────────────────────────────────────────
+if INCLUDE_TREES:
+    tree_page_html = f"""
+<!-- ═══════════════════════════ PAGE 5b — TREE ANALYSIS ═══════════════════════════ -->
+<div class="page">
+  <h2>5b. Trädanalys — individuell detektering</h2>
+
+  <div class="callout green">
+    <strong>Trädtätt område.</strong> CHM-baserad träddetektering via lokala maxima
+    följt av watershed-segmentering identifierar individuella kronor.
+    Krontäckning {canopy_pct_val:.1f}% · {n_trees_val:,} träd · {tree_density_val:.0f} träd/ha.
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric green">
+      <div class="val">{n_trees_val:,}</div>
+      <div class="key">Detekterade träd</div>
+    </div>
+    <div class="metric green">
+      <div class="val">{canopy_pct_val:.1f}%</div>
+      <div class="key">Krontäckning</div>
+    </div>
+    <div class="metric green">
+      <div class="val">{tree_density_val:.0f}</div>
+      <div class="key">Träd per hektar</div>
+    </div>
+    <div class="metric green">
+      <div class="val">{mean_height_val:.1f} m</div>
+      <div class="key">Medelhöjd</div>
+    </div>
+  </div>
+
+  <div class="fig-full">
+    <div class="fig-caption">Figur 5b.1 — CHM, utjämnad CHM med trädtoppar, kronkarta, höjdklasser, täckningskarta och statistik</div>
+    {img_tag(FIGS / "05b_tree_overview.png")}
+  </div>
+
+  <div class="fig-full">
+    <div class="fig-caption">Figur 5b.2 — Trädtäthetskarta (10m grid), kronytahistogram och höjdfördelning</div>
+    {img_tag(FIGS / "05b_tree_density.png")}
+  </div>
+
+  <h3>Höjdklassfördelning</h3>
+  <div class="two-col">
+    <table>
+      <thead><tr><th>Höjdklass</th><th>Antal träd</th><th>Andel (%)</th></tr></thead>
+      <tbody>{tree_height_rows if tree_height_rows else '<tr><td colspan="3" style="text-align:center;color:#999;">Kör steg 5b för träddata</td></tr>'}</tbody>
+    </table>
+    <div>
+      <p><strong>Maxhöjd:</strong> {max_height_val:.2f} m</p>
+      <p><strong>Medelkrona:</strong> {crown_stats_val.get('mean_m2', 0):.1f} m²</p>
+      <p><strong>Mediankrona:</strong> {crown_stats_val.get('median_m2', 0):.1f} m²</p>
+      <p><strong>P95-krona:</strong> {crown_stats_val.get('p95_m2', 0):.1f} m²</p>
+      <p><strong>Total krontäckyta:</strong> {canopy_area_val/10000:.2f} ha</p>
+    </div>
+  </div>
+</div>
+"""
+else:
+    tree_page_html = ""
+
+# Cover stat box for trees (show if INCLUDE_TREES, else show depressions count)
+if INCLUDE_TREES:
+    cover_stat2 = f"""
+      <div class="stat-box">
+        <span class="num" style="color:#4CAF50">{n_trees_val:,}</span>
+        <span class="lbl">Detekterade träd</span>
+      </div>"""
+    cover_meta_trees = f"""
+      <div class="cover-meta-item">
+        <label>Trädanalys</label>
+        <span>{n_trees_val:,} träd  |  {canopy_pct_val:.1f}% krontäckning</span>
+      </div>"""
+else:
+    cover_stat2 = f"""
+      <div class="stat-box">
+        <span class="num" style="color:#4CAF50">{n_deps}</span>
+        <span class="lbl">Fördjupningar</span>
+      </div>"""
+    cover_meta_trees = ""
 
 # ── HTML template ─────────────────────────────────────────────────────────────
 HTML = f"""<!DOCTYPE html>
@@ -431,6 +579,7 @@ HTML = f"""<!DOCTYPE html>
     padding: 3mm 4mm;
     border-radius: 0 3px 3px 0;
   }}
+  .metric.green {{ border-left-color: #2d6a4f; }}
   .metric .val {{
     font-family: 'DM Mono', monospace;
     font-size: 13pt;
@@ -465,6 +614,10 @@ HTML = f"""<!DOCTYPE html>
     border-radius: 0 4px 4px 0;
     margin: 4mm 0;
     font-size: 8.5pt;
+  }}
+  .callout.green {{
+    background: #e8f5e9;
+    border-left-color: #2d6a4f;
   }}
   .callout strong {{ color: #1a1a2e; }}
 
@@ -517,8 +670,8 @@ HTML = f"""<!DOCTYPE html>
     <div class="cover-logo">Geodata Analysis Pipeline — WebODM Export</div>
     <h1>Terränganalys&shy;rapport</h1>
     <div class="cover-sub">
-      Dataset: Güterweg Ritzing / Helenenschacht · Flygning 2022-05-25<br/>
-      Analyskedja: steg 0–6 | GPU-accelererad (NVIDIA RTX 3060)
+      Dataset: {DATASET_TITLE}<br/>
+      Analyskedja: steg 0–6{"inkl. 5b trädanalys" if INCLUDE_TREES else ""} | GPU-accelererad
     </div>
 
     <div class="cover-meta">
@@ -528,38 +681,32 @@ HTML = f"""<!DOCTYPE html>
       </div>
       <div class="cover-meta-item">
         <label>Koordinatsystem</label>
-        <span>EPSG:32617 (UTM Zone 17N)</span>
+        <span>{_cfg.get("crs", "EPSG:32633")}</span>
       </div>
       <div class="cover-meta-item">
         <label>Upplösning</label>
-        <span>0.0500 m/pixel (5 cm GSD)</span>
+        <span>{dsm_res:.4f} m/pixel ({dsm_res*100:.1f} cm GSD)</span>
       </div>
       <div class="cover-meta-item">
         <label>Täckt yta</label>
-        <span>≈ 249 × 204 m  (ca 5.1 ha)</span>
+        <span>{covered_area_ha:.1f} ha  ({dsm_w}×{dsm_h} px)</span>
       </div>
-      <div class="cover-meta-item">
-        <label>Antal bilder (WebODM)</label>
-        <span>Task ID: 693fb877</span>
-      </div>
+      {cover_meta_trees}
       <div class="cover-meta-item">
         <label>GPU-accelerering</label>
-        <span>CuPy CUDA 12  |  RTX 3060  12 GB</span>
+        <span>CuPy CUDA  |  RTX 3060  12 GB</span>
       </div>
     </div>
 
     <div class="cover-stats">
       <div class="stat-box">
-        <span class="num" style="color:#58a6ff">{int(laz_n_pts)//1_000_000:.1f}M</span>
+        <span class="num" style="color:#58a6ff">{laz_n_pts_M:.1f}M</span>
         <span class="lbl">LiDAR-punkter</span>
       </div>
+      {cover_stat2}
       <div class="stat-box">
-        <span class="num" style="color:#4CAF50">{n_deps}</span>
+        <span class="num" style="color:#FF9800">{n_deps}</span>
         <span class="lbl">Fördjupningar</span>
-      </div>
-      <div class="stat-box">
-        <span class="num" style="color:#FF9800">{n_ups}</span>
-        <span class="lbl">Upphöjningar</span>
       </div>
       <div class="stat-box">
         <span class="num" style="color:#e6edf3">{t_mean:.1f}°</span>
@@ -569,7 +716,7 @@ HTML = f"""<!DOCTYPE html>
   </div>
 
   <div class="cover-footer">
-    Geodata Analysis Pipeline · Intern teknisk rapport · All data bearbetad lokalt · {date_str}
+    Geodata Analysis Pipeline · {DATASET_TITLE} · Intern teknisk rapport · All data bearbetad lokalt · {date_str}
   </div>
 </div>
 
@@ -578,9 +725,10 @@ HTML = f"""<!DOCTYPE html>
   <h2>1. Validering av ingångsdata</h2>
 
   <div class="callout">
-    <strong>Status: ✓ Alla 4 källfiler validerade.</strong>
-    CRS konsistent (EPSG:32617) · Upplösning 0.05 m/px på alla rasters ·
-    Punktmoln: {laz_n_pts:,} punkter i {laz_size_mb:.0f} MB
+    <strong>Status: Alla 4 källfiler validerade.</strong>
+    CRS konsistent ({_cfg.get("crs", "EPSG:32633")}) · Upplösning {dsm_res:.4f} m/px ·
+    Punktmoln: {laz_n_pts:,} punkter i {laz_size_mb:.0f} MB ·
+    Vegetation (klass 3–5): {100*(laz_classes.get('Lågveg',0)+laz_classes.get('Medelveg',0)+laz_classes.get('Högveg',0))/max(laz_n_pts,1):.1f}%
   </div>
 
   <div class="fig-full">
@@ -619,11 +767,11 @@ HTML = f"""<!DOCTYPE html>
 
   <div class="metric-grid">
     <div class="metric">
-      <div class="val">{dsm_vmin:.2f}–{dsm_vmax:.2f} m</div>
+      <div class="val">{dsm_vmin:.0f}–{dsm_vmax:.0f} m</div>
       <div class="key">DSM Höjdintervall</div>
     </div>
     <div class="metric">
-      <div class="val">{dtm_vmin:.2f}–{dtm_vmax:.2f} m</div>
+      <div class="val">{dtm_vmin:.0f}–{dtm_vmax:.0f} m</div>
       <div class="key">DTM Höjdintervall</div>
     </div>
     <div class="metric">
@@ -680,16 +828,15 @@ HTML = f"""<!DOCTYPE html>
       <div class="slope-seg" style="width:{t_vsteep:.1f}%;background:#EF5350;" title="Mycket brant"></div>
     </div>
     <div style="display:flex;gap:5mm;font-size:7pt;color:#555;">
-      <span>🟩 Plant &lt;5°: {t_flat:.1f}%</span>
-      <span>🟨 Måttlig 5–15°: {t_mod:.1f}%</span>
-      <span>🟧 Brant 15–30°: {t_steep:.1f}%</span>
-      <span>🟥 Mycket brant &gt;30°: {t_vsteep:.1f}%</span>
+      <span>Plant &lt;5°: {t_flat:.1f}%</span>
+      <span>Måttlig 5–15°: {t_mod:.1f}%</span>
+      <span>Brant 15–30°: {t_steep:.1f}%</span>
+      <span>Mycket brant &gt;30°: {t_vsteep:.1f}%</span>
     </div>
   </div>
 
   <div class="callout">
     GPU-accelererad beräkning via CuPy CUDA gradient. Hillshade beräknad med NV-belysning (azimut 315°, 45° altitud).
-    Aspektanalys med 360° kompassriktningsklassificering.
   </div>
 
   <div class="fig-full">
@@ -705,11 +852,11 @@ HTML = f"""<!DOCTYPE html>
   <div class="metric-grid">
     <div class="metric">
       <div class="val">{n_deps}</div>
-      <div class="key">Fördjupningar (≥ 2 m²)</div>
+      <div class="key">Fördjupningar</div>
     </div>
     <div class="metric">
       <div class="val">{n_ups}</div>
-      <div class="key">Upphöjningar (≥ 2 m²)</div>
+      <div class="key">Upphöjningar</div>
     </div>
     <div class="metric">
       <div class="val">{total_dep_area:.0f} m²</div>
@@ -722,8 +869,8 @@ HTML = f"""<!DOCTYPE html>
   </div>
 
   <div class="callout">
-    Multi-skala lokal avvikelseanalys (radier 2.5, 5.0, 10.0 m) med GPU-accelererade uniform-filter (CuPy).
-    Tröskelvärde: −0.25 m (fördjupning) / +0.30 m (upphöjning). Minsta area: 2 m².
+    Multi-skala lokal avvikelseanalys med GPU-accelererade uniform-filter (CuPy).
+    Parametrar läses från config.json.
   </div>
 
   <div class="fig-full">
@@ -736,9 +883,11 @@ HTML = f"""<!DOCTYPE html>
     <thead>
       <tr><th>Objekt #</th><th>Area (m²)</th><th>Max avv. (m)</th><th>Medel avv. (m)</th></tr>
     </thead>
-    <tbody>{dep_rows}</tbody>
+    <tbody>{dep_rows if dep_rows else '<tr><td colspan="4" style="text-align:center;color:#999;">Inga fördjupningar detekterade</td></tr>'}</tbody>
   </table>
 </div>
+
+{tree_page_html}
 
 <!-- ═══════════════════════════ PAGE 5 — VOLUME ANALYSIS ═══════════════════════════ -->
 <div class="page">
@@ -748,7 +897,7 @@ HTML = f"""<!DOCTYPE html>
     Tre referensplansmetoder tillämpas per objekt: (1) <strong>Percentil 95</strong> — 95:e percentilens höjd,
     (2) <strong>Kantmedelvärde</strong> — medelhöjden längs patchens kant,
     (3) <strong>Interpolerad yta</strong> — linjär interpolering av kantpunkter som referensyta.
-    Kantmedelvärde och interpolerad yta ger typiskt de mest hydrologiskt meningsfulla estimaten.
+    Kantmedelvärde och interpolerad yta ger typiskt de mest meningsfulla estimaten.
   </div>
 
   <h3>Volymer per objekt (m³)</h3>
@@ -815,39 +964,40 @@ HTML = f"""<!DOCTYPE html>
     <tbody>
       <tr><td>0 — Validering</td><td>CRS-kontroll, nodata-maskning, LAZ-statistik</td><td>rasterio, laspy</td><td>—</td></tr>
       <tr><td>1 — Höjdmodell</td><td>DSM/DTM-inläsning, CHM = DSM−DTM</td><td>rasterio, numpy</td><td>CuPy (stats)</td></tr>
-      <tr><td>2 — Terränganalys</td><td>Gradient → slope/aspekt, LightSource hillshade</td><td>scipy, matplotlib</td><td>CuPy gradient ✓</td></tr>
-      <tr><td>3 — Anomalier</td><td>Multi-skala lokal avvikelse (r=2.5/5/10 m)</td><td>cupyx, scipy.ndimage</td><td>CuPy uniform_filter ✓</td></tr>
-      <tr><td>4 — Volym</td><td>3 referensplansmetoder per fördjupning</td><td>scipy.interpolate</td><td>CuPy nansum/percentile ✓</td></tr>
-      <tr><td>5 — Punktmoln</td><td>Täthetskarta, max-Z-karta, klassfördelning</td><td>laspy, numpy</td><td>CuPy bincount ✓</td></tr>
+      <tr><td>2 — Terränganalys</td><td>Gradient → slope/aspekt, LightSource hillshade</td><td>scipy, matplotlib</td><td>CuPy gradient</td></tr>
+      <tr><td>3 — Anomalier</td><td>Multi-skala lokal avvikelse (config-styrda radier)</td><td>cupyx, scipy.ndimage</td><td>CuPy uniform_filter</td></tr>
+      <tr><td>4 — Volym</td><td>3 referensplansmetoder per fördjupning</td><td>scipy.interpolate</td><td>CuPy nansum/percentile</td></tr>
+      <tr><td>5 — Punktmoln</td><td>Täthetskarta, max-Z-karta, klassfördelning</td><td>laspy, numpy</td><td>CuPy bincount</td></tr>
+      {"<tr><td>5b — Trädanalys</td><td>CHM lokala maxima → watershed kronor, stats</td><td>skimage, scipy, CuPy</td><td>CuPy gaussian + bincount</td></tr>" if INCLUDE_TREES else ""}
       <tr><td>6 — Rapport</td><td>Sammanfattningsgrid med alla deriverade lager</td><td>matplotlib</td><td>—</td></tr>
     </tbody>
   </table>
 
   <h3>Datakvalitet och begränsningar</h3>
   <p>
-    DSM och DTM har 92.6% täckning (ej-nodata-pixlar). Nodata-regioner i kanterna är normalt för
-    ODM-producerade ortofoto och höjdmodeller pga. bildöverlapp.
-    Volymberäkningarna bör tolkas med försiktighet — <em>kantmedelvärde</em> och <em>interpolerad yta</em>
-    är mer robusta estimat än <em>percentil 95</em>-metoden för oregelbundna fördjupningar.
+    DSM och DTM har hög täckning. Nodata-regioner i kanterna är normalt för
+    ODM-producerade höjdmodeller pga. bildöverlapp.
+    Volymberäkningarna bör tolkas med försiktighet i tät vegetation — CHM-subtraktionen
+    ger ett bättre markunderlag (DTM) men vegetationseffekter kan påverka kantmedelvärden.
   </p>
   <p>
-    Anomalidetekteringen är baserad på lokal avvikelse mot omgivande terräng, inte hydrologisk
-    Fill-Depression. Detta ger bättre resultat på komplex terräng men kan ge fler false positives
-    i heterogena miljöer.
+    Anomalidetekteringen använder dataset-specifika tröskelvärden från config.json för att
+    anpassa känsligheten per dataset.
   </p>
 </div>
 
 <footer>
-  <span>Geodata Analysis Pipeline — Intern rapport</span>
-  <span>Genererad: {date_str} | GPU: NVIDIA RTX 3060 (CuPy CUDA 12)</span>
-  <span>Wietrznia / Güterweg Ritzing 2022</span>
+  <span>Geodata Analysis Pipeline — {DATASET_TITLE} — Intern rapport</span>
+  <span>Genererad: {date_str} | {_cfg.get("crs", "EPSG:32633")}</span>
+  <span>{FOOTER_DATASET}</span>
 </footer>
 
 </body>
 </html>"""
 
 # ── Write HTML ─────────────────────────────────────────────────────────────────
-html_path = REPS / "geodata_analys_rapport.html"
+html_stem = OUT_PDF.stem
+html_path = REPS / f"{html_stem}.html"
 with open(html_path, "w", encoding="utf-8") as f:
     f.write(HTML)
 print(f"  HTML sparad: {html_path}")
@@ -858,9 +1008,9 @@ try:
     from weasyprint import HTML as WH, CSS
     WH(filename=str(html_path)).write_pdf(str(OUT_PDF))
     size_mb = OUT_PDF.stat().st_size / 1e6
-    print(f"  ✅ PDF sparad: {OUT_PDF}  ({size_mb:.1f} MB)")
+    print(f"  PDF sparad: {OUT_PDF}  ({size_mb:.1f} MB)")
 except Exception as e:
-    print(f"  ⚠️  WeasyPrint fel: {e}")
+    print(f"  WeasyPrint fel: {e}")
     print("      HTML-rapporten är fortfarande tillgänglig.")
 
 print("\n" + "=" * 60)
