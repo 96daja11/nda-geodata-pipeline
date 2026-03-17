@@ -68,6 +68,8 @@
     .stat-num { font-size: 1.1rem; font-weight: 700; color: #4B8AF4; }
     .stat-lbl { font-size: 0.65rem; color: #8FA8CC; margin-top: 0.1rem; }
 
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* Info banner */
     #info_banner {
       position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
@@ -222,6 +224,15 @@
 
 </div>
 
+<!-- Loading overlay -->
+<div id="loading_overlay" style="position:fixed;inset:48px 380px 0 0;background:#08152A;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:1.2rem;pointer-events:none;">
+  <div style="width:48px;height:48px;border:3px solid #1D55D4;border-top-color:#4B8AF4;border-radius:50%;animation:spin 1s linear infinite;"></div>
+  <div style="color:#8FA8CC;font-family:'DM Mono',monospace;font-size:0.78rem;text-align:center;line-height:1.7">
+    Laddar Güterweg punktmoln...<br>
+    <span style="color:#667388;font-size:0.7rem">~24M punkter streamas från disk</span>
+  </div>
+</div>
+
 <!-- Info banner -->
 <div id="info_banner"></div>
 
@@ -246,10 +257,13 @@ viewer.setEDLEnabled(true);
 viewer.setFOV(60);
 viewer.setPointBudget(4_000_000);
 viewer.loadSettingsFromURL();
-viewer.setBackground("gradient");
+viewer.setBackground("black");
 viewer.useHQ = false;
-
 viewer.setDescription("");
+
+// Loading overlay
+const loadOverlay = document.getElementById("loading_overlay");
+if (loadOverlay) loadOverlay.style.display = "flex";
 
 // Load point cloud
 Potree.loadPointCloud("guterweg/metadata.json", "Güterweg Ritzing", function(e) {
@@ -263,11 +277,17 @@ Potree.loadPointCloud("guterweg/metadata.json", "Güterweg Ritzing", function(e)
 
   scene.addPointCloud(pointcloud);
 
-  // Fly to data
-  viewer.fitToScreen();
-  setTimeout(() => { viewer.fitToScreen(0.8); }, 500);
+  if (loadOverlay) loadOverlay.style.display = "none";
 
-  showBanner("Moln laddat · " + pointcloud.numPoints.toLocaleString("sv") + " punkter", 3000);
+  // Fit camera with oblique angle (not straight down, not flat)
+  viewer.fitToScreen();
+  setTimeout(() => {
+    viewer.fitToScreen(0.6);
+    viewer.scene.view.pitch = -0.75;
+  }, 300);
+  setTimeout(() => viewer.fitToScreen(0.6), 1200);
+
+  showBanner("Güterweg laddat · " + pointcloud.numPoints.toLocaleString("sv") + " punkter · Scroll=zoom · Dra=rotera", 4000);
 });
 
 // ─── Visualization controls ─────────────────────────────────────────────────

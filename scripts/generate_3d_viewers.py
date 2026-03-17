@@ -140,12 +140,51 @@ LAYOUT_BASE = dict(
     ),
 )
 
+NDA_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="705 625 591 598" style="width:26px;height:26px;flex-shrink:0"><path fill="#5b8def" d="M1110 1191 c-5 0 -12 -2 -16 -3 -51 -9 -96 -26 -145 -54 -7 -4 -41 -27 -48 -33 -29 -22 -61 -54 -81 -80 -22 -30 -34 -49 -49 -79 -15 -30 -25 -57 -33 -86 -6 -25 -3 -40 11 -54 8 -9 17 -13 31 -14 13 -1 24 3 36 11 13 8 21 20 26 39 3 13 9 30 13 38 26 54 77 111 133 148 37 24 85 44 125 51 44 8 101 4 143 -10 58 -20 117 -63 156 -115 20 -27 40 -66 48 -97 6 -23 4 -37 -9 -52 -18 -21 -51 -22 -71 -2 -8 8 -14 25 -14 38 0 30 -30 83 -62 109 -56 46 -137 59 -204 34 -43 -17 -100 -70 -113 -107 -18 -50 -14 -106 11 -150 36 -64 95 -99 168 -99 47 0 77 10 113 38 14 11 27 18 29 16 2 -2 -5 -23 -16 -46 -57 -125 -190 -196 -325 -174 -100 16 -188 77 -239 165 -25 43 -48 121 -48 165 0 47 22 133 47 182 30 59 84 120 140 160 35 24 107 55 151 65 50 11 131 7 181 -9 79 -26 159 -85 207 -153 20 -28 38 -66 48 -101 7 -27 5 -40 -9 -57 -19 -24 -56 -25 -75 -2 -8 10 -14 27 -14 40 0 51 -51 122 -110 153 -25 13 -64 24 -90 27 z"/></svg>"""
+
 def save_html(fig, path, title):
-    fig.update_layout(title=dict(text=title, font=dict(size=14, color="#4B8AF4"),
-                                  x=0.5, xanchor="center"))
-    html = pio.to_html(fig, full_html=True, include_plotlyjs="cdn",
-                       config=dict(displayModeBar=True, scrollZoom=True))
-    path.write_text(html, encoding="utf-8")
+    fig.update_layout(title=None, margin=dict(l=0, r=0, t=0, b=0))
+    plotly_div = pio.to_html(fig, full_html=False, include_plotlyjs="cdn",
+                              config=dict(displayModeBar=True, scrollZoom=True))
+    dataset_slug = path.parent.name   # guterweg / wietrznia
+    wrapped = f"""<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NDA — {title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  html, body {{ height: 100%; background: #08152A; }}
+  body {{ display: flex; flex-direction: column; font-family: "DM Sans", sans-serif; }}
+  #topbar {{
+    height: 44px; flex-shrink: 0;
+    background: #08152A; border-bottom: 2px solid #1D55D4;
+    display: flex; align-items: center; padding: 0 1rem; gap: 0.75rem;
+  }}
+  .logo {{ font-weight: 700; font-size: 0.88rem; }}
+  .logo .n {{ color: #F7F9FC; }} .logo .a {{ color: #4B8AF4; }}
+  .vtitle {{ color: #8FA8CC; font-family: "DM Mono", monospace; font-size: 0.7rem; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .back {{ color: #4B8AF4; font-family: "DM Mono", monospace; font-size: 0.7rem; text-decoration: none; border: 1px solid #1D55D4; border-radius: 4px; padding: 0.2rem 0.7rem; white-space: nowrap; }}
+  .back:hover {{ background: #0F2240; }}
+  #plot {{ flex: 1; min-height: 0; }}
+  #plot > div {{ height: 100% !important; }}
+  .js-plotly-plot, .plotly, .plot-container {{ height: 100% !important; }}
+</style>
+</head>
+<body>
+<div id="topbar">
+  {NDA_LOGO_SVG}
+  <span class="logo"><span class="n">North Drone</span><span class="a"> Analytics</span></span>
+  <span class="vtitle">{title}</span>
+  <a href="../index.html" class="back">← Index</a>
+</div>
+<div id="plot">{plotly_div}</div>
+</body>
+</html>"""
+    path.write_text(wrapped, encoding="utf-8")
     print(f"  → {path.name}  ({path.stat().st_size/1e6:.1f} MB)")
 
 # ══════════════════════════════════════════════════════════════════════════════

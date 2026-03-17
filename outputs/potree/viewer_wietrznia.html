@@ -279,8 +279,18 @@
           &nbsp;→ <span style="color:#4B8AF4; font-weight:700">38 träd</span>
         </div>
       </div>
-      <div style="margin-top:0.6rem;">
-        <button class="btn btn-success" onclick="generateRunCommand()">Generera körkommando</button>
+
+      <div style="margin-top:0.75rem;">
+        <button class="btn btn-primary" onclick="runLiveAnalysis()" id="btn_run_live">
+          ▶ Kör live-analys med dessa parametrar
+        </button>
+        <div id="live_status" style="display:none;margin-top:0.5rem;background:#08152A;border-radius:6px;padding:0.75rem;font-size:0.72rem;color:#8FA8CC;line-height:1.7;"></div>
+      </div>
+
+      <div style="margin-top:0.5rem;border-top:1px solid #1D55D4;padding-top:0.5rem;">
+        <button class="btn btn-secondary" onclick="generateRunCommand()" style="font-size:0.7rem">
+          Visa manuellt körkommando
+        </button>
         <div id="run_cmd" style="display:none;margin-top:0.5rem;background:#08152A;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#4B8AF4;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;"></div>
       </div>
     </div>
@@ -334,6 +344,15 @@
 
 </div>
 
+<!-- Loading overlay -->
+<div id="loading_overlay" style="position:fixed;inset:48px 380px 0 0;background:#08152A;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:500;gap:1.2rem;pointer-events:none;">
+  <div style="width:48px;height:48px;border:3px solid #1D55D4;border-top-color:#4B8AF4;border-radius:50%;animation:spin 1s linear infinite;"></div>
+  <div style="color:#8FA8CC;font-family:'DM Mono',monospace;font-size:0.78rem;text-align:center;line-height:1.7">
+    Laddar Wietrznia punktmoln...<br>
+    <span style="color:#667388;font-size:0.7rem">~28M punkter streamas från disk</span>
+  </div>
+</div>
+
 <div id="info_banner"></div>
 
 <script src="Potree_1.8.2/libs/jquery/jquery-3.1.1.min.js"></script>
@@ -355,7 +374,10 @@ viewer.setEDLEnabled(true);
 viewer.setFOV(60);
 viewer.setPointBudget(4_000_000);
 viewer.loadSettingsFromURL();
-viewer.setBackground("gradient");
+viewer.setBackground("black");
+
+const loadOverlay = document.getElementById("loading_overlay");
+if (loadOverlay) loadOverlay.style.display = "flex";
 
 Potree.loadPointCloud("wietrznia/metadata.json", "Wietrznia", function(e) {
   let pc = e.pointcloud;
@@ -363,9 +385,18 @@ Potree.loadPointCloud("wietrznia/metadata.json", "Wietrznia", function(e) {
   pc.material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
   pc.material.activeAttributeName = "classification";
   viewer.scene.addPointCloud(pc);
+
+  if (loadOverlay) loadOverlay.style.display = "none";
+
+  // Fit camera with oblique angle — retried to handle async render init
   viewer.fitToScreen();
-  setTimeout(() => viewer.fitToScreen(0.8), 500);
-  showBanner("Wietrznia laddat · " + pc.numPoints.toLocaleString("sv") + " punkter", 3000);
+  setTimeout(() => {
+    viewer.fitToScreen(0.6);
+    viewer.scene.view.pitch = -0.75;
+  }, 300);
+  setTimeout(() => viewer.fitToScreen(0.6), 1200);
+
+  showBanner("Wietrznia laddat · " + pc.numPoints.toLocaleString("sv") + " punkter · Scroll=zoom · Dra=rotera", 4000);
 });
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -548,6 +579,85 @@ python3 scripts/05b_tree_analysis.py
   let el = document.getElementById("run_cmd");
   el.style.display = "block";
   el.textContent = cmd;
+}
+
+// ─── Live tree analysis API ────────────────────────────────────────────────────
+let _pollInterval = null;
+
+function runLiveAnalysis() {
+  let sigma = parseFloat(document.getElementById("sl_sigma").value);
+  let minDist = parseFloat(document.getElementById("sl_mindist").value);
+  let vegTh = parseFloat(document.getElementById("sl_vegth").value);
+  let heightMin = parseFloat(document.getElementById("sl_heightmin").value);
+
+  let statusEl = document.getElementById("live_status");
+  let btnEl = document.getElementById("btn_run_live");
+
+  statusEl.style.display = "block";
+  statusEl.innerHTML = `<span class="spinner"></span> Startar analys med sigma=${sigma.toFixed(1)}, min_dist=${minDist.toFixed(1)}m...`;
+  btnEl.disabled = true;
+  btnEl.textContent = "⏳ Analyserar...";
+
+  fetch("/api/tree_tune", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sigma, min_dist_m: minDist, veg_th: vegTh, height_min: heightMin })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      statusEl.innerHTML = `<span style="color:#f87171">Fel: ${data.error}</span>`;
+      btnEl.disabled = false;
+      btnEl.textContent = "▶ Kör live-analys med dessa parametrar";
+    } else {
+      statusEl.innerHTML = `<span class="spinner"></span> Analys pågår... (tar ~30–60 sek)`;
+      _pollInterval = setInterval(_pollTreeStatus, 2000);
+    }
+  })
+  .catch(err => {
+    statusEl.innerHTML = `<span style="color:#f87171">Kunde inte nå API. Är servern startad med server.py?<br>${err}</span>`;
+    btnEl.disabled = false;
+    btnEl.textContent = "▶ Kör live-analys med dessa parametrar";
+  });
+}
+
+function _pollTreeStatus() {
+  fetch("/api/tree_status")
+  .then(r => r.json())
+  .then(data => {
+    let statusEl = document.getElementById("live_status");
+    let btnEl = document.getElementById("btn_run_live");
+
+    if (data.running) {
+      let elapsed = data.elapsed_s ? ` (${Math.round(data.elapsed_s)}s)` : "";
+      statusEl.innerHTML = `<span class="spinner"></span> Analyserar${elapsed}...`;
+    } else {
+      clearInterval(_pollInterval);
+      btnEl.disabled = false;
+      btnEl.textContent = "▶ Kör live-analys med dessa parametrar";
+
+      if (data.error) {
+        statusEl.innerHTML = `<span style="color:#f87171">Fel i analysen:<br><code style="font-size:0.65rem">${data.error.slice(0,500)}</code></span>`;
+      } else if (data.result) {
+        let r = data.result;
+        let trees = r.tree_count ?? "?";
+        let h = r.mean_height_m ? r.mean_height_m.toFixed(1) : "?";
+        let area = r.mean_crown_area_m2 ? r.mean_crown_area_m2.toFixed(1) : "?";
+        let color = (trees < 10 || trees > 200) ? "#fbbf24" : "#4B8AF4";
+        statusEl.innerHTML =
+          `<b style="color:#F7F9FC">Analys klar!</b><br>` +
+          `<span style="color:${color};font-size:1.2rem;font-weight:700">${trees} träd</span><br>` +
+          `Medelhöjd: <b>${h} m</b> · Medelkrona: <b>${area} m²</b><br>` +
+          `<span style="color:#4B8AF4;font-size:0.65rem">Resultaten sparade i outputs/reports/05b_tree_analysis.json</span>`;
+        // Update the heuristic estimate label too
+        document.getElementById("tree_estimate").innerHTML =
+          `<b>Senast kört:</b><br>` +
+          `sigma=${data.params?.sigma?.toFixed(1) ?? "?"} · min_dist=${data.params?.min_dist_m?.toFixed(1) ?? "?"}m<br>` +
+          `→ <span style="color:${color};font-weight:700">${trees} träd</span>`;
+      }
+    }
+  })
+  .catch(() => { /* server might not respond during heavy computation */ });
 }
 
 // ─── Measurements ─────────────────────────────────────────────────────────────
