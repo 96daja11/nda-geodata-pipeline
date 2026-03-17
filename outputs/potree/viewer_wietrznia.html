@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartTek — Wietrznia · 3D Inspektion</title>
+
+  <link rel="stylesheet" href="Potree_1.8.2/build/potree/potree.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/jquery-ui/jquery-ui.min.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/openlayers3/ol.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/spectrum/spectrum.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/jstree/themes/mixed/style.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #0d1117; font-family: "DM Mono", "Courier New", monospace; overflow: hidden; }
+
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 48px; z-index: 1000;
+      background: #161b22; border-bottom: 1px solid #30363d;
+      display: flex; align-items: center; padding: 0 1rem; gap: 1rem;
+    }
+    #topbar .logo { color: #3fb950; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.08em; white-space: nowrap; }
+    #topbar .dataset { color: #8b949e; font-size: 0.75rem; }
+    #topbar .spacer { flex: 1; }
+    #topbar a.back { color: #3fb950; font-size: 0.75rem; text-decoration: none; border: 1px solid #30363d; border-radius: 4px; padding: 0.25rem 0.75rem; }
+    #topbar a.back:hover { background: #21262d; }
+
+    #potree_render_area { position: fixed; top: 48px; left: 0; right: 380px; bottom: 0; }
+    #potree_sidebar_container { display: none; }
+    #sidebar_panel { display: none; }
+
+    #custom_sidebar {
+      position: fixed; top: 48px; right: 0; width: 380px; bottom: 0;
+      background: #161b22; border-left: 1px solid #30363d;
+      overflow-y: auto; display: flex; flex-direction: column;
+    }
+
+    /* Tabs */
+    .tab-header { display: flex; background: #0d1117; border-bottom: 1px solid #21262d; }
+    .tab-btn { flex: 1; padding: 0.6rem; font-family: inherit; font-size: 0.7rem; font-weight: 600; color: #8b949e; background: none; border: none; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab-btn.active { color: #3fb950; border-bottom-color: #3fb950; }
+    .tab-btn:hover:not(.active) { color: #e6edf3; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .sb-section { padding: 1rem; border-bottom: 1px solid #21262d; }
+    .sb-title { font-size: 0.65rem; color: #3fb950; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.75rem; }
+    .sb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .sb-label { font-size: 0.72rem; color: #8b949e; flex: 0 0 145px; }
+    .sb-val { font-size: 0.72rem; color: #e6edf3; min-width: 2.5rem; text-align: right; }
+    input[type=range] { flex: 1; accent-color: #3fb950; cursor: pointer; }
+    input[type=number] { width: 60px; background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; font-family: inherit; }
+    select { background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; flex: 1; cursor: pointer; }
+    .btn { display: block; width: 100%; padding: 0.5rem; border: none; border-radius: 5px; font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-bottom: 0.4rem; letter-spacing: 0.04em; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary   { background: #1f6feb; color: #fff; }
+    .btn-success   { background: #238636; color: #fff; }
+    .btn-warn      { background: #9e6a03; color: #fff; }
+    .btn-danger    { background: #b91c1c; color: #fff; }
+    .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+
+    .cls-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+    .cls-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    .cls-label { font-size: 0.72rem; color: #e6edf3; flex: 1; }
+    .cls-toggle { font-size: 0.65rem; color: #3fb950; cursor: pointer; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .stat-box { background: #0d1117; border-radius: 6px; padding: 0.6rem 0.8rem; }
+    .stat-num { font-size: 1.05rem; font-weight: 700; color: #3fb950; }
+    .stat-lbl { font-size: 0.65rem; color: #8b949e; margin-top: 0.1rem; }
+
+    /* Tree tuner */
+    .param-block { background: #0d1117; border-radius: 8px; padding: 0.8rem; margin-bottom: 0.6rem; }
+    .param-name { font-size: 0.7rem; color: #e3b341; font-weight: 700; margin-bottom: 0.15rem; }
+    .param-desc { font-size: 0.65rem; color: #8b949e; margin-bottom: 0.5rem; line-height: 1.5; }
+    .result-box { background: #0a1628; border: 1px solid #1f3a5f; border-radius: 6px; padding: 0.6rem 0.8rem; font-size: 0.7rem; color: #58a6ff; font-family: monospace; line-height: 1.7; }
+    .result-num { font-size: 1.4rem; font-weight: 700; color: #3fb950; }
+    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #30363d; border-top-color: #3fb950; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #info_banner {
+      position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+      padding: 0.5rem 1.2rem; font-size: 0.75rem; color: #8b949e; z-index: 999;
+      pointer-events: none; opacity: 0; transition: opacity 0.3s; max-width: 50vw; text-align: center;
+    }
+    #info_banner.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="logo">SmartTek</span>
+  <span class="dataset">Wietrznia · Bergsterräng &amp; grönområde · 28.5M punkter · EPSG:32633</span>
+  <span class="spacer"></span>
+  <a class="back" href="viewer_guterweg.html">← Güterweg</a>
+  <a class="back" href="index.html">Index</a>
+</div>
+
+<div id="potree_render_area"></div>
+<div id="potree_sidebar_container"></div>
+<div id="sidebar_panel"></div>
+
+<div id="custom_sidebar">
+
+  <!-- Tab navigation -->
+  <div class="tab-header">
+    <button class="tab-btn active" onclick="switchTab('viz')">Visning</button>
+    <button class="tab-btn" onclick="switchTab('roi')">ROI</button>
+    <button class="tab-btn" onclick="switchTab('trees')">Träd</button>
+    <button class="tab-btn" onclick="switchTab('measure')">Mät</button>
+  </div>
+
+  <!-- ── TAB: Visning ── -->
+  <div id="tab_viz" class="tab-content active">
+    <div class="sb-section">
+      <div class="sb-title">Dataset · Wietrznia</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-num">28.5M</div><div class="stat-lbl">Punkter</div></div>
+        <div class="stat-box"><div class="stat-num">951 MB</div><div class="stat-lbl">Octree</div></div>
+        <div class="stat-box"><div class="stat-num">0.05 m</div><div class="stat-lbl">Upplösning</div></div>
+        <div class="stat-box"><div class="stat-num">38 träd</div><div class="stat-lbl">Detekterade</div></div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Visualisering</div>
+      <div class="sb-row">
+        <span class="sb-label">Färgläggning</span>
+        <select id="sel_color">
+          <option value="rgb">RGB (foto)</option>
+          <option value="classification" selected>Klassificering</option>
+          <option value="elevation">Höjd</option>
+          <option value="intensity">Intensitet</option>
+        </select>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">Punktstorlek</span>
+        <input type="range" id="sl_ptsize" min="0.5" max="5" step="0.1" value="1.5" />
+        <span class="sb-val" id="lbl_ptsize">1.5</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">Budget (M pts)</span>
+        <input type="range" id="sl_budget" min="1" max="10" step="0.5" value="4" />
+        <span class="sb-val" id="lbl_budget">4</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">FOV</span>
+        <input type="range" id="sl_fov" min="30" max="100" step="1" value="60" />
+        <span class="sb-val" id="lbl_fov">60°</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">Eye-Dome Lighting</span>
+        <input type="range" id="sl_edl" min="0" max="2" step="0.1" value="1.4" />
+        <span class="sb-val" id="lbl_edl">1.4</span>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Klassificering · Synlighet</div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#9E9E9E"></div><span class="cls-label">0 — Oklassificerad</span><span class="cls-toggle" data-cls="0">dölj</span></div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#795548"></div><span class="cls-label">2 — Mark</span><span class="cls-toggle" data-cls="2">dölj</span></div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#C5E1A5"></div><span class="cls-label">3 — Lågvegetation</span><span class="cls-toggle" data-cls="3">dölj</span></div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#66BB6A"></div><span class="cls-label">4 — Medelvegetation</span><span class="cls-toggle" data-cls="4">dölj</span></div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#1B5E20"></div><span class="cls-label">5 — Högvegetation</span><span class="cls-toggle" data-cls="5">dölj</span></div>
+      <div class="cls-row"><div class="cls-swatch" style="background:#1565C0"></div><span class="cls-label">6 — Byggnad</span><span class="cls-toggle" data-cls="6">dölj</span></div>
+      <div class="sb-row" style="margin-top:0.6rem; gap: 0.4rem">
+        <button class="btn btn-secondary" style="flex:1;margin:0" onclick="showAllClasses()">Alla</button>
+        <button class="btn btn-secondary" style="flex:1;margin:0" onclick="showOnlyGround()">Mark</button>
+        <button class="btn btn-secondary" style="flex:1;margin:0" onclick="showOnlyVeg()">Vegetation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: ROI ── -->
+  <div id="tab_roi" class="tab-content">
+    <div class="sb-section">
+      <div class="sb-title">Klipp &amp; Isolera Region</div>
+      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.75rem;line-height:1.5">
+        Lägg till en klippvolym för att fokusera analysen på ett specifikt område. Perfekt för att isolera en enskild sluttning, schakt eller träddunge.
+      </p>
+      <button class="btn btn-primary" onclick="addClipVolume()">+ Lägg till klippbox</button>
+      <button class="btn btn-secondary" onclick="addSphereVolume()">+ Lägg till klippsfär</button>
+      <button class="btn btn-success" onclick="toggleClipMode()">Växla: Innanför ↔ Utanför</button>
+      <button class="btn btn-warn" onclick="removeAllClips()">Ta bort alla klipp</button>
+      <div style="margin-top:0.6rem; padding:0.6rem; background:#0d1117; border-radius:6px; font-size:0.68rem; color:#8b949e; line-height:1.7">
+        <b style="color:#e6edf3">Klippbox-kontroller:</b><br>
+        Dra gröna handtag → ändra storlek<br>
+        Shift+drag på box → flytta<br>
+        Del → ta bort markerat klipp
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Exportera ROI till Python</div>
+      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.5rem;line-height:1.5">
+        Exportera klippboxens koordinater och generera ett Python-kodblock för att klippa LAZ-filen med <code style="color:#3fb950">laspy</code>.
+      </p>
+      <button class="btn btn-success" onclick="exportROIInfo()">Generera Python-kodblock</button>
+      <div id="roi_output" style="display:none;margin-top:0.5rem;background:#0d1117;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#3fb950;font-family:monospace;line-height:1.6;word-break:break-all;white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: Träd ── -->
+  <div id="tab_trees" class="tab-content">
+    <div class="sb-section">
+      <div class="sb-title">Träddetektionsparametrar</div>
+      <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.75rem;line-height:1.5">
+        Justera parametrarna och kör om analysen via det lokala Python-scriptet. Resultaten uppdateras i <code style="color:#3fb950">outputs/reports/tree_analysis.json</code>.
+      </p>
+
+      <div class="param-block">
+        <div class="param-name">SIGMA — Gaussisk utjämning av CHM</div>
+        <div class="param-desc">Hur mycket CHM-ytan glättas innan topparna hittas. Högre värde → ignorerar intra-kronbumpar → färre, mer robusta träd.</div>
+        <div class="sb-row">
+          <input type="range" id="sl_sigma" min="0.5" max="8" step="0.5" value="3.0" />
+          <span class="sb-val" id="lbl_sigma">3.0</span>
+        </div>
+        <div style="font-size:0.65rem;color:#8b949e">Nuvarande: <b style="color:#e6edf3">3.0</b> &nbsp;·&nbsp; 1.0 = detaljrikt &nbsp;·&nbsp; 6.0 = glättat</div>
+      </div>
+
+      <div class="param-block">
+        <div class="param-name">MIN_DISTANCE — Minsta avstånd mellan trädtoppar</div>
+        <div class="param-desc">Minsta avstånd (meter) mellan två detekterade trädtoppar. Approximation av krondiameter. Nyckelparameter.</div>
+        <div class="sb-row">
+          <input type="range" id="sl_mindist" min="1" max="15" step="0.5" value="5.0" />
+          <span class="sb-val" id="lbl_mindist">5.0 m</span>
+        </div>
+        <div style="font-size:0.65rem;color:#8b949e">Nuvarande: <b style="color:#e6edf3">5.0 m</b> &nbsp;·&nbsp; Litet = tätt bestånd &nbsp;·&nbsp; Stort = glest</div>
+      </div>
+
+      <div class="param-block">
+        <div class="param-name">VEG_THRESHOLD — Min vegetationshöjd</div>
+        <div class="param-desc">Pixlar under denna höjd (m ovan mark) räknas inte som vegetation. Filtrerar gräs och buskar.</div>
+        <div class="sb-row">
+          <input type="range" id="sl_vegth" min="0.5" max="5" step="0.25" value="1.5" />
+          <span class="sb-val" id="lbl_vegth">1.5 m</span>
+        </div>
+      </div>
+
+      <div class="param-block">
+        <div class="param-name">TREE_HEIGHT_MIN — Minsta trädets höjd</div>
+        <div class="param-desc">Träd kortare än detta (m) filtreras bort från slutresultatet.</div>
+        <div class="sb-row">
+          <input type="range" id="sl_heightmin" min="1" max="10" step="0.5" value="3.0" />
+          <span class="sb-val" id="lbl_heightmin">3.0 m</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Uppskattad effekt</div>
+      <div class="result-box">
+        <div id="tree_estimate">
+          Ändra parametrar ovan för att se uppskattad trädantal.<br><br>
+          <b>Nuvarande (kört):</b><br>
+          &nbsp;sigma=3.0 &nbsp;min_dist=5.0m<br>
+          &nbsp;→ <span style="color:#3fb950; font-weight:700">38 träd</span>
+        </div>
+      </div>
+      <div style="margin-top:0.6rem;">
+        <button class="btn btn-success" onclick="generateRunCommand()">Generera körkommando</button>
+        <div id="run_cmd" style="display:none;margin-top:0.5rem;background:#0d1117;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#3fb950;font-family:monospace;line-height:1.6;white-space:pre-wrap;word-break:break-all;"></div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Kalibreringstabell</div>
+      <table style="width:100%;font-size:0.68rem;border-collapse:collapse;">
+        <thead>
+          <tr style="color:#8b949e;border-bottom:1px solid #30363d;">
+            <th style="text-align:left;padding:0.3rem 0">min_dist</th>
+            <th style="text-align:right;padding:0.3rem 0">Detekterade</th>
+            <th style="text-align:right;padding:0.3rem 0">Notering</th>
+          </tr>
+        </thead>
+        <tbody style="color:#e6edf3;">
+          <tr><td style="padding:0.25rem 0">0.4 m (8 px)</td><td style="text-align:right">1 519</td><td style="text-align:right;color:#b91c1c">för tätt</td></tr>
+          <tr><td style="padding:0.25rem 0">2.0 m (40 px)</td><td style="text-align:right">182</td><td style="text-align:right;color:#e3b341">troligen hög</td></tr>
+          <tr><td style="padding:0.25rem 0">4.0 m (80 px)</td><td style="text-align:right">55</td><td style="text-align:right;color:#e6edf3">ok</td></tr>
+          <tr style="background:#1a2a1a"><td style="padding:0.25rem 0"><b>5.0 m (100 px)</b></td><td style="text-align:right"><b>38</b></td><td style="text-align:right;color:#3fb950">✓ valt</td></tr>
+          <tr><td style="padding:0.25rem 0">6.0 m (120 px)</td><td style="text-align:right">32</td><td style="text-align:right;color:#8b949e">lite lågt</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── TAB: Mät ── -->
+  <div id="tab_measure" class="tab-content">
+    <div class="sb-section">
+      <div class="sb-title">Mätverktyg</div>
+      <button class="btn btn-secondary" onclick="measureDistance()">Mät avstånd</button>
+      <button class="btn btn-secondary" onclick="measureHeight()">Mät höjdskillnad</button>
+      <button class="btn btn-secondary" onclick="measureArea()">Mät area</button>
+      <button class="btn btn-secondary" onclick="measureVolume()">Mät volym (box)</button>
+      <button class="btn btn-danger" onclick="clearMeasurements()" style="margin-top:0.4rem">Rensa alla mätningar</button>
+      <div style="margin-top:0.6rem; padding:0.6rem; background:#0d1117; border-radius:6px; font-size:0.68rem; color:#8b949e; line-height:1.7">
+        <b style="color:#e6edf3">Tips:</b><br>
+        Avstånd: klicka punkter, dubbelklicka avsluta<br>
+        Höjd: klicka 2 punkter → visar Δz<br>
+        Area: rita polygon, dubbelklicka stäng<br>
+        Volym: dra en box, läses av i 3D
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Kameravyer</div>
+      <button class="btn btn-secondary" onclick="viewTop()">Ovanifrån (kartläge)</button>
+      <button class="btn btn-secondary" onclick="viewOblique()">Sned vy (45°)</button>
+      <button class="btn btn-secondary" onclick="resetCamera()">Återställ vy</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="info_banner"></div>
+
+<script src="Potree_1.8.2/libs/jquery/jquery-3.1.1.min.js"></script>
+<script src="Potree_1.8.2/libs/spectrum/spectrum.js"></script>
+<script src="Potree_1.8.2/libs/jquery-ui/jquery-ui.min.js"></script>
+<script src="Potree_1.8.2/libs/other/BinaryHeap.js"></script>
+<script src="Potree_1.8.2/libs/tween/tween.min.js"></script>
+<script src="Potree_1.8.2/libs/d3/d3.js"></script>
+<script src="Potree_1.8.2/libs/proj4/proj4.js"></script>
+<script src="Potree_1.8.2/libs/openlayers3/ol.js"></script>
+<script src="Potree_1.8.2/libs/i18n/i18next.js"></script>
+<script src="Potree_1.8.2/libs/other/laslaz.js"></script>
+<script src="Potree_1.8.2/build/potree/potree.js"></script>
+
+<script>
+// ─── Init Potree ─────────────────────────────────────────────────────────────
+window.viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+viewer.setEDLEnabled(true);
+viewer.setFOV(60);
+viewer.setPointBudget(4_000_000);
+viewer.loadSettingsFromURL();
+viewer.setBackground("gradient");
+
+Potree.loadPointCloud("wietrznia/metadata.json", "Wietrznia", function(e) {
+  let pc = e.pointcloud;
+  pc.material.size = 1.5;
+  pc.material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
+  pc.material.activeAttributeName = "classification";
+  viewer.scene.addPointCloud(pc);
+  viewer.fitToScreen();
+  setTimeout(() => viewer.fitToScreen(0.8), 500);
+  showBanner("Wietrznia laddat · " + pc.numPoints.toLocaleString("sv") + " punkter", 3000);
+});
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab_" + id).classList.add("active");
+  event.target.classList.add("active");
+}
+
+// ─── Visualization ───────────────────────────────────────────────────────────
+document.getElementById("sel_color").addEventListener("change", function() {
+  let pc = getPC(); if (!pc) return;
+  const m = { rgb:"rgba", classification:"classification", elevation:"elevation", intensity:"intensity" };
+  pc.material.activeAttributeName = m[this.value] || this.value;
+});
+document.getElementById("sl_ptsize").addEventListener("input", function() {
+  document.getElementById("lbl_ptsize").textContent = this.value;
+  let pc = getPC(); if (pc) pc.material.size = parseFloat(this.value);
+});
+document.getElementById("sl_budget").addEventListener("input", function() {
+  document.getElementById("lbl_budget").textContent = this.value;
+  viewer.setPointBudget(parseFloat(this.value) * 1_000_000);
+});
+document.getElementById("sl_fov").addEventListener("input", function() {
+  document.getElementById("lbl_fov").textContent = this.value + "°";
+  viewer.setFOV(parseInt(this.value));
+});
+document.getElementById("sl_edl").addEventListener("input", function() {
+  document.getElementById("lbl_edl").textContent = this.value;
+  viewer.setEDLRadius(parseFloat(this.value));
+});
+
+// ─── Classification ───────────────────────────────────────────────────────────
+document.querySelectorAll(".cls-toggle").forEach(btn => {
+  let hidden = false;
+  btn.addEventListener("click", function() {
+    hidden = !hidden;
+    this.textContent = hidden ? "visa" : "dölj";
+    let pc = getPC(); if (!pc) return;
+    let id = parseInt(this.dataset.cls);
+    if (pc.material.classification[id]) {
+      pc.material.classification[id].visible = !hidden;
+      pc.material.recomputeClassification();
+    }
+  });
+});
+
+function showAllClasses() {
+  let pc = getPC(); if (!pc) return;
+  pc.material.classification.forEach(c => { if(c) c.visible = true; });
+  pc.material.recomputeClassification();
+  document.querySelectorAll(".cls-toggle").forEach(t => t.textContent = "dölj");
+}
+function showOnlyGround() {
+  let pc = getPC(); if (!pc) return;
+  pc.material.classification.forEach((c,i) => { if(c) c.visible = (i===2); });
+  pc.material.recomputeClassification();
+}
+function showOnlyVeg() {
+  let pc = getPC(); if (!pc) return;
+  pc.material.classification.forEach((c,i) => { if(c) c.visible = [3,4,5].includes(i); });
+  pc.material.recomputeClassification();
+}
+
+// ─── ROI ─────────────────────────────────────────────────────────────────────
+function addClipVolume() {
+  viewer.startInsertionWorkflow(new Potree.ClipVolume(viewer));
+  showBanner("Klicka för att placera klippboxen · Dra handtag för att justera storlek", 4000);
+}
+function addSphereVolume() {
+  viewer.startInsertionWorkflow(new Potree.SphereVolume(viewer));
+  showBanner("Klicka för att placera klippsfären", 3000);
+}
+let clipInside = true;
+function toggleClipMode() {
+  clipInside = !clipInside;
+  let pc = getPC(); if (!pc) return;
+  pc.material.clipMode = clipInside ? Potree.ClipMode.CLIP_OUTSIDE : Potree.ClipMode.CLIP_INSIDE;
+  showBanner(clipInside ? "Visar punkter INNANFÖR klippboxen" : "Visar punkter UTANFÖR klippboxen", 2500);
+}
+function removeAllClips() {
+  viewer.scene.volumes.filter(v => v instanceof Potree.ClipVolume || v instanceof Potree.SphereVolume)
+    .forEach(v => viewer.scene.removeVolume(v));
+  showBanner("Alla klippvolymer borttagna", 2000);
+}
+function exportROIInfo() {
+  let volumes = viewer.scene.volumes.filter(v => v instanceof Potree.ClipVolume);
+  let out = document.getElementById("roi_output");
+  if (volumes.length === 0) {
+    out.style.display = "block"; out.style.color = "#e3b341";
+    out.textContent = "Ingen klippbox aktiv.\nLägg till en klippbox (ROI-fliken) först.";
+    return;
+  }
+  let vol = volumes[0];
+  let pos = vol.position, sc = vol.scale;
+  let code = `# Klipp Wietrznia LAZ till markerat ROI
+import laspy, numpy as np
+las = laspy.read("data/raw/georeferenced_model.laz")
+x = las.x.scaled_array()
+y = las.y.scaled_array()
+z = las.z.scaled_array()
+
+# ROI från Potree-klippbox
+mask = (
+    (x > ${(pos.x - sc.x/2).toFixed(1)}) & (x < ${(pos.x + sc.x/2).toFixed(1)}) &
+    (y > ${(pos.y - sc.y/2).toFixed(1)}) & (y < ${(pos.y + sc.y/2).toFixed(1)})
+)
+roi_las = las[mask]
+roi_las.write("data/raw/roi_wietrznia.laz")
+print(f"ROI: {mask.sum():,} punkter sparade")`;
+  out.style.display = "block"; out.style.color = "#3fb950";
+  out.textContent = code;
+}
+
+// ─── Tree tuner ───────────────────────────────────────────────────────────────
+function estimateTrees(sigma, minDist, vegTh, heightMin) {
+  // Rough lookup based on calibration data (non-linear)
+  let base = 38;
+  let distFactor = Math.pow(5.0 / minDist, 1.8);
+  let sigmaFactor = Math.pow(3.0 / sigma, 0.5);
+  let vegFactor = Math.pow(1.5 / vegTh, 0.3);
+  let est = Math.round(base * distFactor * sigmaFactor * vegFactor);
+  return Math.max(1, Math.min(2000, est));
+}
+
+["sl_sigma","sl_mindist","sl_vegth","sl_heightmin"].forEach(id => {
+  document.getElementById(id).addEventListener("input", updateTreeEstimate);
+});
+
+function updateTreeEstimate() {
+  let sigma = parseFloat(document.getElementById("sl_sigma").value);
+  let minDist = parseFloat(document.getElementById("sl_mindist").value);
+  let vegTh = parseFloat(document.getElementById("sl_vegth").value);
+  let heightMin = parseFloat(document.getElementById("sl_heightmin").value);
+
+  document.getElementById("lbl_sigma").textContent = sigma.toFixed(1);
+  document.getElementById("lbl_mindist").textContent = minDist.toFixed(1) + " m";
+  document.getElementById("lbl_vegth").textContent = vegTh.toFixed(2) + " m";
+  document.getElementById("lbl_heightmin").textContent = heightMin.toFixed(1) + " m";
+
+  let est = estimateTrees(sigma, minDist, vegTh, heightMin);
+  let quality = est < 10 ? "⚠️ för få" : est > 200 ? "⚠️ troligen för många" : "✓ rimligt intervall";
+  let color = est < 10 || est > 200 ? "#e3b341" : "#3fb950";
+  document.getElementById("tree_estimate").innerHTML =
+    `<b>Uppskattad trädantal:</b><br>` +
+    `<span class="result-num" style="color:${color}">${est}</span><br><br>` +
+    `sigma=${sigma.toFixed(1)} · min_dist=${minDist.toFixed(1)}m<br>` +
+    `veg_th=${vegTh.toFixed(2)}m · h_min=${heightMin.toFixed(1)}m<br>` +
+    `<span style="color:${color}">${quality}</span>`;
+}
+
+function generateRunCommand() {
+  let sigma = parseFloat(document.getElementById("sl_sigma").value);
+  let minDist = parseFloat(document.getElementById("sl_mindist").value);
+  let vegTh = parseFloat(document.getElementById("sl_vegth").value);
+  let heightMin = parseFloat(document.getElementById("sl_heightmin").value);
+  let pixelSize = 0.05;
+  let minDistPx = Math.round(minDist / pixelSize);
+
+  let cmd = `# Kör om trädanalys med nya parametrar
+# Från projektrotmappen:
+
+cd /mnt/storage4tb/smarttek-demo/webodm_sampledata_wietrznia
+source ../.venv/bin/activate  # eller webodm_sampledata/.venv
+
+# Redigera parametrarna i scriptet:
+SIGMA = ${sigma.toFixed(1)}
+VEG_THRESHOLD = ${vegTh.toFixed(2)}
+MIN_DISTANCE_PX = ${minDistPx}   # = ${minDist.toFixed(1)} m
+TREE_HEIGHT_MIN = ${heightMin.toFixed(1)}
+
+# Kör:
+python3 scripts/05b_tree_analysis.py
+
+# Resultat i:
+# outputs/figures/05b_tree_*.png
+# outputs/reports/05b_tree_analysis.json`;
+
+  let el = document.getElementById("run_cmd");
+  el.style.display = "block";
+  el.textContent = cmd;
+}
+
+// ─── Measurements ─────────────────────────────────────────────────────────────
+function measureDistance() {
+  viewer.measuringTool.startInsertion({ showDistances:true, showArea:false, closed:false, name:"Avstånd" });
+  showBanner("Klicka punkter · Dubbelklicka avsluta", 3000);
+}
+function measureHeight() {
+  viewer.measuringTool.startInsertion({ showDistances:true, showHeight:true, closed:false, maxMarkers:2, name:"Höjd" });
+  showBanner("Klicka två punkter för att mäta höjdskillnad", 3000);
+}
+function measureArea() {
+  viewer.measuringTool.startInsertion({ showDistances:true, showArea:true, closed:true, name:"Area" });
+  showBanner("Rita polygon · Dubbelklicka stäng", 3000);
+}
+function measureVolume() {
+  viewer.volumeTool.startInsertion();
+  showBanner("Dra volymlåda · Avläs volym i 3D", 3000);
+}
+function clearMeasurements() {
+  viewer.scene.measurements.forEach(m => viewer.scene.removeMeasurement(m));
+  showBanner("Mätningar borttagna", 2000);
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+function viewTop()     { viewer.scene.view.pitch = -Math.PI/2; viewer.scene.view.yaw = 0; showBanner("Ovanifrån-vy", 1500); }
+function viewOblique() { viewer.scene.view.pitch = -Math.PI/4; showBanner("Sned vy (45°)", 1500); }
+function resetCamera() { viewer.fitToScreen(0.8); showBanner("Kamera återställd", 1500); }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getPC() { return viewer.scene.pointclouds[0] || null; }
+
+let bannerTimer;
+function showBanner(msg, ms) {
+  let el = document.getElementById("info_banner");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.remove("show"), ms);
+}
+</script>
+</body>
+</html>

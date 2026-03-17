@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartTek — Güterweg Ritzing · 3D Inspektion</title>
+
+  <link rel="stylesheet" href="Potree_1.8.2/build/potree/potree.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/jquery-ui/jquery-ui.min.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/openlayers3/ol.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/spectrum/spectrum.css" />
+  <link rel="stylesheet" href="Potree_1.8.2/libs/jstree/themes/mixed/style.css" />
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #0d1117; font-family: "DM Mono", "Courier New", monospace; overflow: hidden; }
+
+    /* ── Top bar ── */
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0; height: 48px; z-index: 1000;
+      background: #161b22; border-bottom: 1px solid #30363d;
+      display: flex; align-items: center; padding: 0 1rem; gap: 1rem;
+    }
+    #topbar .logo { color: #58a6ff; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.08em; white-space: nowrap; }
+    #topbar .dataset { color: #8b949e; font-size: 0.75rem; }
+    #topbar .spacer { flex: 1; }
+    #topbar a.back { color: #58a6ff; font-size: 0.75rem; text-decoration: none; border: 1px solid #30363d; border-radius: 4px; padding: 0.25rem 0.75rem; }
+    #topbar a.back:hover { background: #21262d; }
+
+    /* ── Main layout ── */
+    #potree_render_area { position: fixed; top: 48px; left: 0; right: 360px; bottom: 0; }
+    #sidebar_panel { display: none; } /* hide default potree sidebar */
+
+    /* ── Custom sidebar ── */
+    #custom_sidebar {
+      position: fixed; top: 48px; right: 0; width: 360px; bottom: 0;
+      background: #161b22; border-left: 1px solid #30363d;
+      overflow-y: auto; display: flex; flex-direction: column;
+    }
+    .sb-section { padding: 1rem; border-bottom: 1px solid #21262d; }
+    .sb-title { font-size: 0.65rem; color: #58a6ff; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.75rem; }
+    .sb-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .sb-label { font-size: 0.72rem; color: #8b949e; flex: 0 0 130px; }
+    .sb-val { font-size: 0.72rem; color: #e6edf3; }
+    input[type=range] { flex: 1; accent-color: #58a6ff; cursor: pointer; }
+    input[type=checkbox] { accent-color: #58a6ff; cursor: pointer; }
+    select { background: #0d1117; color: #e6edf3; border: 1px solid #30363d; border-radius: 4px; padding: 0.2rem 0.4rem; font-size: 0.72rem; flex: 1; cursor: pointer; }
+    .btn { display: block; width: 100%; padding: 0.5rem; border: none; border-radius: 5px; font-family: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-bottom: 0.4rem; letter-spacing: 0.04em; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #1f6feb; color: #fff; }
+    .btn-success { background: #238636; color: #fff; }
+    .btn-warn    { background: #9e6a03; color: #fff; }
+    .btn-danger  { background: #b91c1c; color: #fff; }
+    .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+
+    /* classification colour swatches */
+    .cls-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; }
+    .cls-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    .cls-label { font-size: 0.72rem; color: #e6edf3; flex: 1; }
+    .cls-toggle { font-size: 0.65rem; color: #58a6ff; cursor: pointer; }
+
+    /* Stats */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .stat-box { background: #0d1117; border-radius: 6px; padding: 0.6rem 0.8rem; }
+    .stat-num { font-size: 1.1rem; font-weight: 700; color: #58a6ff; }
+    .stat-lbl { font-size: 0.65rem; color: #8b949e; margin-top: 0.1rem; }
+
+    /* Info banner */
+    #info_banner {
+      position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+      padding: 0.5rem 1.2rem; font-size: 0.75rem; color: #8b949e; z-index: 999;
+      pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+    #info_banner.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <span class="logo">SmartTek</span>
+  <span class="dataset">Güterweg Ritzing · 23.9M punkter · EPSG:32633</span>
+  <span class="spacer"></span>
+  <a class="back" href="index.html">← Index</a>
+  <a class="back" href="viewer_wietrznia.html">Wietrznia →</a>
+</div>
+
+<!-- Potree viewport -->
+<div id="potree_render_area"></div>
+
+<!-- Potree default containers (required but hidden) -->
+<div id="potree_sidebar_container"></div>
+<div id="sidebar_panel"></div>
+
+<!-- Custom sidebar -->
+<div id="custom_sidebar">
+
+  <!-- Dataset stats -->
+  <div class="sb-section">
+    <div class="sb-title">Dataset · Güterweg Ritzing</div>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="stat-num">23.9M</div><div class="stat-lbl">Punkter</div></div>
+      <div class="stat-box"><div class="stat-num">797 MB</div><div class="stat-lbl">Octree</div></div>
+      <div class="stat-box"><div class="stat-num">0.05 m</div><div class="stat-lbl">Upplösning</div></div>
+      <div class="stat-box"><div class="stat-num">EPSG:32633</div><div class="stat-lbl">CRS</div></div>
+    </div>
+  </div>
+
+  <!-- Visualization -->
+  <div class="sb-section">
+    <div class="sb-title">Visualisering</div>
+    <div class="sb-row">
+      <span class="sb-label">Färgläggning</span>
+      <select id="sel_color">
+        <option value="rgb">RGB (foto)</option>
+        <option value="classification" selected>Klassificering</option>
+        <option value="elevation">Höjd</option>
+        <option value="intensity">Intensitet</option>
+        <option value="return_number">Returnummer</option>
+      </select>
+    </div>
+    <div class="sb-row">
+      <span class="sb-label">Punktstorlek</span>
+      <input type="range" id="sl_ptsize" min="0.5" max="5" step="0.1" value="1.5" />
+      <span class="sb-val" id="lbl_ptsize">1.5</span>
+    </div>
+    <div class="sb-row">
+      <span class="sb-label">Budget (M pts)</span>
+      <input type="range" id="sl_budget" min="1" max="10" step="0.5" value="4" />
+      <span class="sb-val" id="lbl_budget">4</span>
+    </div>
+    <div class="sb-row">
+      <span class="sb-label">FOV</span>
+      <input type="range" id="sl_fov" min="30" max="100" step="1" value="60" />
+      <span class="sb-val" id="lbl_fov">60°</span>
+    </div>
+  </div>
+
+  <!-- Classification visibility -->
+  <div class="sb-section">
+    <div class="sb-title">Klassificering · Synlighet</div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#9E9E9E"></div><span class="cls-label">0 — Oklassificerad</span><span class="cls-toggle" onclick="toggleClass(0)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#795548"></div><span class="cls-label">2 — Mark</span><span class="cls-toggle" onclick="toggleClass(2)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#C5E1A5"></div><span class="cls-label">3 — Lågvegetation</span><span class="cls-toggle" onclick="toggleClass(3)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#66BB6A"></div><span class="cls-label">4 — Medelvegetation</span><span class="cls-toggle" onclick="toggleClass(4)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#1B5E20"></div><span class="cls-label">5 — Högvegetation</span><span class="cls-toggle" onclick="toggleClass(5)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#1565C0"></div><span class="cls-label">6 — Byggnad</span><span class="cls-toggle" onclick="toggleClass(6)">dölj</span></div>
+    <div class="cls-row"><div class="cls-swatch" style="background:#E53935"></div><span class="cls-label">7 — Lågpunkt/Brus</span><span class="cls-toggle" onclick="toggleClass(7)">dölj</span></div>
+    <div class="cls-row" style="margin-top:0.6rem">
+      <button class="btn btn-secondary" style="flex:1;margin:0" onclick="showAllClasses()">Visa alla</button>
+      <button class="btn btn-secondary" style="flex:1;margin:0;margin-left:0.4rem" onclick="showOnlyGround()">Bara mark</button>
+    </div>
+  </div>
+
+  <!-- ROI / Clipping -->
+  <div class="sb-section">
+    <div class="sb-title">Region of Interest (ROI)</div>
+    <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.75rem;line-height:1.5">
+      Rita en klippvolym för att isolera ett intresseområde. Välj verktyg → klicka i scenen för att placera boxen.
+    </p>
+    <button class="btn btn-primary" onclick="addClipVolume()">Lägg till klippbox</button>
+    <button class="btn btn-secondary" onclick="addSphereVolume()">Lägg till klippsfär</button>
+    <button class="btn btn-success" onclick="toggleClipMode()">Växla: Visa innanför / utanför</button>
+    <button class="btn btn-warn" onclick="removeAllClips()">Ta bort alla klipp</button>
+    <div style="margin-top:0.6rem; padding:0.6rem; background:#0d1117; border-radius:6px; font-size:0.7rem; color:#8b949e; line-height:1.6">
+      <b style="color:#e6edf3">Klippbox-kontroller:</b><br>
+      Dra handtag → ändra storlek<br>
+      Shift+drag → flytta boxen<br>
+      Scroll → zoom inne i box<br>
+      Del-tangent → ta bort markerat klipp
+    </div>
+  </div>
+
+  <!-- Measurements -->
+  <div class="sb-section">
+    <div class="sb-title">Mätverktyg</div>
+    <button class="btn btn-secondary" onclick="measureDistance()">Mät avstånd</button>
+    <button class="btn btn-secondary" onclick="measureHeight()">Mät höjd</button>
+    <button class="btn btn-secondary" onclick="measureArea()">Mät area</button>
+    <button class="btn btn-secondary" onclick="measureVolume()">Mät volym</button>
+    <button class="btn btn-danger" onclick="clearMeasurements()">Rensa mätningar</button>
+  </div>
+
+  <!-- Camera presets -->
+  <div class="sb-section">
+    <div class="sb-title">Kameravyer</div>
+    <button class="btn btn-secondary" onclick="viewTop()">Ovanifrån (karta)</button>
+    <button class="btn btn-secondary" onclick="viewOblique()">Sned vy</button>
+    <button class="btn btn-secondary" onclick="resetCamera()">Återställ</button>
+  </div>
+
+  <!-- Export -->
+  <div class="sb-section">
+    <div class="sb-title">Export &amp; analys</div>
+    <p style="font-size:0.7rem;color:#8b949e;margin-bottom:0.5rem;line-height:1.5">
+      Välj ett klippt ROI-område och exportera punkter för vidare analys med Python-scripten.
+    </p>
+    <button class="btn btn-success" onclick="exportROIInfo()">Visa ROI-koordinater</button>
+    <div id="roi_output" style="display:none;margin-top:0.5rem;background:#0d1117;border-radius:6px;padding:0.75rem;font-size:0.68rem;color:#3fb950;font-family:monospace;line-height:1.6;word-break:break-all;"></div>
+  </div>
+
+</div>
+
+<!-- Info banner -->
+<div id="info_banner"></div>
+
+<!-- Scripts -->
+<script src="Potree_1.8.2/libs/jquery/jquery-3.1.1.min.js"></script>
+<script src="Potree_1.8.2/libs/spectrum/spectrum.js"></script>
+<script src="Potree_1.8.2/libs/jquery-ui/jquery-ui.min.js"></script>
+<script src="Potree_1.8.2/libs/other/BinaryHeap.js"></script>
+<script src="Potree_1.8.2/libs/tween/tween.min.js"></script>
+<script src="Potree_1.8.2/libs/d3/d3.js"></script>
+<script src="Potree_1.8.2/libs/proj4/proj4.js"></script>
+<script src="Potree_1.8.2/libs/openlayers3/ol.js"></script>
+<script src="Potree_1.8.2/libs/i18n/i18next.js"></script>
+<script src="Potree_1.8.2/libs/other/laslaz.js"></script>
+<script src="Potree_1.8.2/build/potree/potree.js"></script>
+
+<script>
+// ─── Init Potree ────────────────────────────────────────────────────────────
+window.viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+
+viewer.setEDLEnabled(true);
+viewer.setFOV(60);
+viewer.setPointBudget(4_000_000);
+viewer.loadSettingsFromURL();
+viewer.setBackground("gradient");
+viewer.useHQ = false;
+
+viewer.setDescription("");
+
+// Load point cloud
+Potree.loadPointCloud("guterweg/metadata.json", "Güterweg Ritzing", function(e) {
+  let scene = viewer.scene;
+  let pointcloud = e.pointcloud;
+  let material = pointcloud.material;
+
+  material.size = 1.5;
+  material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
+  material.activeAttributeName = "classification";
+
+  scene.addPointCloud(pointcloud);
+
+  // Fly to data
+  viewer.fitToScreen();
+  setTimeout(() => { viewer.fitToScreen(0.8); }, 500);
+
+  showBanner("Moln laddat · " + pointcloud.numPoints.toLocaleString("sv") + " punkter", 3000);
+});
+
+// ─── Visualization controls ─────────────────────────────────────────────────
+document.getElementById("sel_color").addEventListener("change", function() {
+  let pc = getPC();
+  if (!pc) return;
+  const attrMap = {
+    "rgb": "rgba",
+    "classification": "classification",
+    "elevation": "elevation",
+    "intensity": "intensity",
+    "return_number": "returnNumber"
+  };
+  pc.material.activeAttributeName = attrMap[this.value] || this.value;
+});
+
+document.getElementById("sl_ptsize").addEventListener("input", function() {
+  document.getElementById("lbl_ptsize").textContent = this.value;
+  let pc = getPC(); if (pc) pc.material.size = parseFloat(this.value);
+});
+
+document.getElementById("sl_budget").addEventListener("input", function() {
+  document.getElementById("lbl_budget").textContent = this.value;
+  viewer.setPointBudget(parseFloat(this.value) * 1_000_000);
+});
+
+document.getElementById("sl_fov").addEventListener("input", function() {
+  document.getElementById("lbl_fov").textContent = this.value + "°";
+  viewer.setFOV(parseInt(this.value));
+});
+
+// ─── Classification toggle ───────────────────────────────────────────────────
+const classVisible = {};
+function toggleClass(id) {
+  let pc = getPC(); if (!pc) return;
+  classVisible[id] = (classVisible[id] === undefined) ? false : !classVisible[id];
+  let vis = classVisible[id];
+  pc.material.classification[id] = {
+    visible: vis,
+    color: pc.material.classification[id]?.color ?? new THREE.Vector4(1,1,1,1)
+  };
+  pc.material.recomputeClassification();
+  let toggles = document.querySelectorAll(".cls-toggle");
+  // find toggle for this class
+  event.target.textContent = vis ? "dölj" : "visa";
+}
+
+function showAllClasses() {
+  let pc = getPC(); if (!pc) return;
+  for (let cls of pc.material.classification) {
+    if (cls) cls.visible = true;
+  }
+  pc.material.recomputeClassification();
+  document.querySelectorAll(".cls-toggle").forEach(t => t.textContent = "dölj");
+}
+
+function showOnlyGround() {
+  let pc = getPC(); if (!pc) return;
+  // Show only class 2 (ground)
+  for (let i = 0; i < pc.material.classification.length; i++) {
+    if (pc.material.classification[i]) {
+      pc.material.classification[i].visible = (i === 2);
+    }
+  }
+  pc.material.recomputeClassification();
+  document.querySelectorAll(".cls-toggle").forEach((t, idx) => {
+    const cls = [0,2,3,4,5,6,7][idx];
+    t.textContent = (cls === 2) ? "dölj" : "visa";
+  });
+}
+
+// ─── ROI / Clipping ──────────────────────────────────────────────────────────
+function addClipVolume() {
+  viewer.startInsertionWorkflow(new Potree.ClipVolume(viewer));
+  showBanner("Klicka i scenen för att placera klippboxen. Dra handtag för att justera.", 4000);
+}
+
+function addSphereVolume() {
+  viewer.startInsertionWorkflow(new Potree.SphereVolume(viewer));
+  showBanner("Klicka i scenen för att placera klippsfären.", 3000);
+}
+
+let clipInside = true;
+function toggleClipMode() {
+  clipInside = !clipInside;
+  let mode = clipInside ? Potree.ClipMode.CLIP_OUTSIDE : Potree.ClipMode.CLIP_INSIDE;
+  let pc = getPC(); if (!pc) return;
+  pc.material.clipMode = mode;
+  showBanner(clipInside ? "Visar punkter INNANFÖR klippboxen" : "Visar punkter UTANFÖR klippboxen", 2500);
+}
+
+function removeAllClips() {
+  let scene = viewer.scene;
+  let toRemove = scene.volumes.filter(v => v instanceof Potree.ClipVolume || v instanceof Potree.SphereVolume);
+  toRemove.forEach(v => scene.removeVolume(v));
+  showBanner("Alla klippvolymer borttagna", 2000);
+}
+
+// ─── Measurements ────────────────────────────────────────────────────────────
+function measureDistance() {
+  viewer.measuringTool.startInsertion({ showDistances: true, showArea: false, closed: false, name: "Avstånd" });
+  showBanner("Klicka för att lägga till mätpunkter · Dubbelklicka för att avsluta", 4000);
+}
+function measureHeight() {
+  viewer.measuringTool.startInsertion({ showDistances: true, showHeight: true, closed: false, maxMarkers: 2, name: "Höjd" });
+  showBanner("Klicka på två punkter för att mäta höjdskillnad", 3000);
+}
+function measureArea() {
+  viewer.measuringTool.startInsertion({ showDistances: true, showArea: true, closed: true, name: "Area" });
+  showBanner("Klicka för att rita area-polygon · Dubbelklicka för att stänga", 4000);
+}
+function measureVolume() {
+  viewer.volumeTool.startInsertion();
+  showBanner("Rita en volymbox för volymmätning", 3000);
+}
+function clearMeasurements() {
+  viewer.scene.measurements.forEach(m => viewer.scene.removeMeasurement(m));
+  viewer.scene.volumes.filter(v => v instanceof Potree.BoxVolume).forEach(v => viewer.scene.removeVolume(v));
+  showBanner("Alla mätningar borttagna", 2000);
+}
+
+// ─── Camera ──────────────────────────────────────────────────────────────────
+function viewTop() {
+  let cam = viewer.scene.view;
+  cam.pitch = -Math.PI / 2;
+  cam.yaw = 0;
+  showBanner("Ovanifrån-vy (kartläge)", 1500);
+}
+function viewOblique() {
+  let cam = viewer.scene.view;
+  cam.pitch = -Math.PI / 4;
+  showBanner("Sned vy", 1500);
+}
+function resetCamera() {
+  viewer.fitToScreen(0.8);
+  showBanner("Kamera återställd", 1500);
+}
+
+// ─── Export ROI ──────────────────────────────────────────────────────────────
+function exportROIInfo() {
+  let volumes = viewer.scene.volumes.filter(v => v instanceof Potree.ClipVolume);
+  let out = document.getElementById("roi_output");
+  if (volumes.length === 0) {
+    out.style.display = "block";
+    out.style.color = "#e3b341";
+    out.textContent = "Ingen klippbox aktiv.\nLägg till en klippbox först.";
+    return;
+  }
+  let vol = volumes[0];
+  let pos = vol.position;
+  let sc  = vol.scale;
+  let info = {
+    dataset: "guterweg",
+    laz_file: "webodm_sampledata/data/raw/georeferenced_model.laz",
+    clip_center_m: [pos.x.toFixed(3), pos.y.toFixed(3), pos.z.toFixed(3)],
+    clip_size_m:   [sc.x.toFixed(3),  sc.y.toFixed(3),  sc.z.toFixed(3)],
+    python_clip: `import laspy, numpy as np\nlas = laspy.read("data/raw/georeferenced_model.laz")\nx,y,z = las.x.scaled_array(), las.y.scaled_array(), las.z.scaled_array()\nmask = (\n  (x > ${(pos.x-sc.x/2).toFixed(1)}) & (x < ${(pos.x+sc.x/2).toFixed(1)}) &\n  (y > ${(pos.y-sc.y/2).toFixed(1)}) & (y < ${(pos.y+sc.y/2).toFixed(1)})\n)\nprint(f"ROI: {mask.sum():,} punkter")`
+  };
+  out.style.display = "block";
+  out.style.color = "#3fb950";
+  out.textContent = JSON.stringify(info, null, 2);
+  showBanner("ROI-koordinater exporterade till sidopanelen", 3000);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function getPC() {
+  return viewer.scene.pointclouds[0] || null;
+}
+
+let bannerTimer;
+function showBanner(msg, ms) {
+  let el = document.getElementById("info_banner");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.remove("show"), ms);
+}
+</script>
+</body>
+</html>

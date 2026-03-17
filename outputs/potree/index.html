@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartTek — 3D Inspektionsportal</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display&family=Instrument+Sans:wght@400;600&display=swap');
+  body { background: #0d1117; color: #e6edf3; font-family: "Instrument Sans", system-ui, sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+    border-bottom: 1px solid #21262d; padding: 3rem 2rem 2.5rem;
+    text-align: center;
+  }
+  .logo-mark { font-size: 0.7rem; letter-spacing: 0.2em; color: #58a6ff; text-transform: uppercase; font-family: "DM Mono", monospace; margin-bottom: 0.6rem; }
+  header h1 { font-family: "DM Serif Display", serif; font-size: 2.6rem; font-weight: 400; color: #e6edf3; line-height: 1.15; margin-bottom: 0.5rem; }
+  header p { color: #8b949e; font-size: 0.9rem; max-width: 520px; margin: 0 auto 1.5rem; line-height: 1.7; }
+  .badges { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+  .badge { font-family: "DM Mono", monospace; font-size: 0.65rem; padding: 0.25rem 0.6rem; border-radius: 20px; font-weight: 500; }
+  .badge-blue   { background: #1f3a5f; color: #58a6ff; }
+  .badge-green  { background: #1a3a1a; color: #3fb950; }
+  .badge-yellow { background: #3a2d00; color: #e3b341; }
+
+  main { max-width: 1200px; margin: 3rem auto; padding: 0 2rem; }
+  section { margin-bottom: 3.5rem; }
+  .section-label { font-family: "DM Mono", monospace; font-size: 0.65rem; color: #58a6ff; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.75rem; }
+  .section-title { font-family: "DM Serif Display", serif; font-size: 1.4rem; color: #e6edf3; margin-bottom: 0.4rem; }
+  .section-desc { color: #8b949e; font-size: 0.85rem; line-height: 1.6; margin-bottom: 1.5rem; max-width: 600px; }
+
+  .viewer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 800px) { .viewer-grid { grid-template-columns: 1fr; } }
+
+  .viewer-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+    overflow: hidden; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    text-decoration: none; color: inherit; display: block;
+  }
+  .viewer-card:hover { border-color: #58a6ff; transform: translateY(-3px); box-shadow: 0 8px 30px rgba(88,166,255,0.12); }
+  .viewer-card.green:hover { border-color: #3fb950; box-shadow: 0 8px 30px rgba(63,185,80,0.12); }
+
+  .card-header { padding: 1.5rem 1.5rem 0; display: flex; align-items: flex-start; justify-content: space-between; }
+  .card-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+  .icon-blue { background: #1f3a5f; }
+  .icon-green { background: #1a3a1a; }
+  .card-meta { font-family: "DM Mono", monospace; font-size: 0.62rem; color: #8b949e; text-align: right; }
+
+  .card-body { padding: 1rem 1.5rem 1.5rem; }
+  .card-title { font-family: "DM Serif Display", serif; font-size: 1.1rem; color: #e6edf3; margin-bottom: 0.3rem; }
+  .card-desc { font-size: 0.78rem; color: #8b949e; line-height: 1.6; margin-bottom: 1rem; }
+  .card-features { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+  .feature { font-family: "DM Mono", monospace; font-size: 0.62rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: #21262d; color: #8b949e; }
+  .feature.active { background: #1f3a5f; color: #58a6ff; }
+  .feature.green  { background: #1a3a1a; color: #3fb950; }
+
+  .card-cta { display: flex; align-items: center; justify-content: space-between; padding-top: 1rem; border-top: 1px solid #21262d; }
+  .cta-text { font-size: 0.8rem; font-weight: 600; color: #58a6ff; }
+  .green .cta-text { color: #3fb950; }
+  .cta-arrow { font-size: 1rem; transition: transform 0.2s; }
+  .viewer-card:hover .cta-arrow { transform: translateX(4px); }
+
+  /* Feature list */
+  .feature-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .feat-item { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem; }
+  .feat-item-icon { font-size: 1.3rem; margin-bottom: 0.5rem; }
+  .feat-item-title { font-size: 0.85rem; font-weight: 600; color: #e6edf3; margin-bottom: 0.25rem; }
+  .feat-item-desc { font-size: 0.75rem; color: #8b949e; line-height: 1.5; }
+
+  /* Quick start */
+  .quick-start { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 1.5rem; }
+  .qs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .qs-step { display: flex; gap: 0.75rem; }
+  .step-num { width: 24px; height: 24px; background: #1f3a5f; color: #58a6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: "DM Mono", monospace; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .step-body { font-size: 0.78rem; }
+  .step-title { color: #e6edf3; font-weight: 600; margin-bottom: 0.2rem; }
+  .step-desc { color: #8b949e; line-height: 1.5; }
+  code { font-family: "DM Mono", monospace; font-size: 0.7rem; background: #0d1117; color: #3fb950; padding: 0.1rem 0.35rem; border-radius: 3px; }
+
+  footer { text-align: center; padding: 2rem; color: #484f58; font-size: 0.75rem; border-top: 1px solid #21262d; margin-top: 2rem; }
+  footer span { color: #8b949e; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">SmartTek AB · Geodataanalys</div>
+  <h1>3D Inspektionsportal</h1>
+  <p>Interaktiva punktmolnsvisualiseringar med ROI-selektion, klassificeringsfiltrering och mätverktyg. Powered by Potree WebGL.</p>
+  <div class="badges">
+    <span class="badge badge-blue">Potree 1.8.2</span>
+    <span class="badge badge-green">2 Dataset</span>
+    <span class="badge badge-yellow">52.4M punkter totalt</span>
+    <span class="badge badge-blue">ROI-export</span>
+    <span class="badge badge-green">Trädtuner</span>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <div class="section-label">Viewers</div>
+    <div class="section-title">Välj dataset</div>
+    <div class="section-desc">Klicka på ett dataset för att öppna den interaktiva 3D-viewern i helskärm.</div>
+
+    <div class="viewer-grid">
+
+      <!-- Güterweg -->
+      <a class="viewer-card" href="viewer_guterweg.html">
+        <div class="card-header">
+          <div class="card-icon icon-blue">🏗️</div>
+          <div class="card-meta">23.9M punkter<br>797 MB octree<br>EPSG:32633</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">Güterweg Ritzing</div>
+          <div class="card-desc">Industriellt/urbant område. Byggnader, hårdgjorda ytor, vegetation. Lämpligt för byggnadsinspektions- och terrängavvikelsestudier.</div>
+          <div class="card-features">
+            <span class="feature active">RGB-färger</span>
+            <span class="feature active">Klassificering</span>
+            <span class="feature active">ROI-klipp</span>
+            <span class="feature active">Avståndsmätning</span>
+            <span class="feature active">Volymmätning</span>
+            <span class="feature">Trädtuner</span>
+          </div>
+          <div class="card-cta">
+            <span class="cta-text">Öppna 3D-viewer</span>
+            <span class="cta-arrow">→</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Wietrznia -->
+      <a class="viewer-card green" href="viewer_wietrznia.html">
+        <div class="card-header">
+          <div class="card-icon icon-green">🌲</div>
+          <div class="card-meta">28.5M punkter<br>951 MB octree<br>EPSG:32633</div>
+        </div>
+        <div class="card-body">
+          <div class="card-title">Wietrznia</div>
+          <div class="card-desc">Bergsterrängerat grönområde med skogspartier, schaktliknande fördjupningar och geologiska formationer. 38 detekterade träd.</div>
+          <div class="card-features">
+            <span class="feature green">RGB-färger</span>
+            <span class="feature green">Klassificering</span>
+            <span class="feature green">ROI-klipp</span>
+            <span class="feature green">38 träd</span>
+            <span class="feature green">Trädtuner ★</span>
+            <span class="feature green">Volymmätning</span>
+          </div>
+          <div class="card-cta">
+            <span class="cta-text" style="color:#3fb950">Öppna 3D-viewer</span>
+            <span class="cta-arrow">→</span>
+          </div>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Funktioner</div>
+    <div class="section-title">Vad du kan göra</div>
+    <div class="feature-list">
+      <div class="feat-item">
+        <div class="feat-item-icon">✂️</div>
+        <div class="feat-item-title">ROI-selektion</div>
+        <div class="feat-item-desc">Placera en klippbox eller klippsfär i 3D-scenen och isolera ett specifikt område. Exportera koordinaterna direkt till Python-kod för vidare analys.</div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">🎨</div>
+        <div class="feat-item-title">Klassificeringskontroll</div>
+        <div class="feat-item-desc">Slå på/av enskilda LAS-klasser (mark, vegetation, byggnader) för att renodla vad du vill se. Välj färgläggning: RGB, klassificering, höjd eller intensitet.</div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">📏</div>
+        <div class="feat-item-title">Precisionsmätning</div>
+        <div class="feat-item-desc">Mät avstånd, höjdskillnader, areor och volymer direkt i 3D-molnet. Alla mätningar visas som annotationer i scenen.</div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">🌲</div>
+        <div class="feat-item-title">Trädparameter-tuner</div>
+        <div class="feat-item-desc">Justera sigma, min_distance, vegetationströskel interaktivt och se uppskattad trädantal. Generera körkommando för att köra om Python-scriptet.</div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">👁️</div>
+        <div class="feat-item-title">Eye-Dome Lighting</div>
+        <div class="feat-item-desc">Justerbar kantförstärkning (EDL) som ger tydliga kanter och djupperception i punktmolnet utan att behöva normaler.</div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-item-icon">⚡</div>
+        <div class="feat-item-title">Adaptiv rendering</div>
+        <div class="feat-item-desc">Octree-baserad streaming — laddar bara synliga noder. Justerbar punktbudget (1–10M) för att balansera detaljnivå mot prestanda.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Workflow</div>
+    <div class="section-title">Snabbstart: ROI → Python-analys</div>
+    <div class="quick-start">
+      <div class="qs-grid">
+        <div class="qs-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Öppna viewer och placera klippbox</div>
+            <div class="step-desc">Klicka "Lägg till klippbox" → klicka i 3D-scenen → justera med handtagen tills du täcker ditt intresseområde.</div>
+          </div>
+        </div>
+        <div class="qs-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Exportera koordinater</div>
+            <div class="step-desc">Klicka "Visa ROI-koordinater" — du får ett Python-kodblock med exakta koordinater för din klippbox.</div>
+          </div>
+        </div>
+        <div class="qs-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Klipp LAZ-filen lokalt</div>
+            <div class="step-desc">Klistra in det genererade kodblocket i terminalen — <code>laspy</code> clippar punktmolnet och sparar <code>roi.laz</code>.</div>
+          </div>
+        </div>
+        <div class="qs-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Kör analys på ROI</div>
+            <div class="step-desc">Peka analysskripten (<code>03_anomaly_detection.py</code>, <code>04_volume_analysis.py</code>) mot den klippta filen för fokuserad analys.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  SmartTek AB · <span>De flesta levererar bilder. Vi levererar svar.</span><br>
+  <span style="font-family:'DM Mono',monospace;font-size:0.65rem">Potree 1.8.2 · PotreeConverter 2.1.1 · Servad lokalt på port 9001</span>
+</footer>
+
+</body>
+</html>

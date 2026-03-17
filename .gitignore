@@ -22,6 +22,43 @@ data/datasets/
 models/crack_detection/*.pt
 models/crack_detection/*.onnx
 
+# Large geodata files (downloaded separately via WebODM or scripts)
+**/*.laz
+**/*.las
+**/*.tif
+**/*.tiff
+**/*.pdf
+
+# Potree converted point clouds (large binary, regenerate with PotreeConverter)
+outputs/potree/guterweg/
+outputs/potree/wietrznia/
+outputs/potree/Potree_1.8.2/
+outputs/potree/potree.zip
+
+# Plotly 3D viewers (large HTML, regenerate with generate_3d_viewers.py)
+outputs/3d_viewers/
+
+# Analysis outputs (regenerate with pipeline scripts)
+outputs/figures/
+outputs/reports/
+
+# Python venv (shared, install separately)
+webodm_sampledata/.venv/
+webodm_sampledata_wietrznia/.venv/
+
+# WebODM sampledata raw/derived data (large, download separately)
+webodm_sampledata/data/raw/
+webodm_sampledata/data/derived/
+webodm_sampledata/outputs/
+webodm_sampledata/__pycache__/
+webodm_sampledata/scripts/__pycache__/
+
+webodm_sampledata_wietrznia/data/raw/
+webodm_sampledata_wietrznia/data/derived/
+webodm_sampledata_wietrznia/outputs/
+webodm_sampledata_wietrznia/__pycache__/
+webodm_sampledata_wietrznia/scripts/__pycache__/
+
 # IDE
 .idea/
 .vscode/
